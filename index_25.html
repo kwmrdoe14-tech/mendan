@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>卒論面談</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#fff; --ink:#1f2430; --sub:#5f6675; --line:#e2e5ea;
+  --pri:#2f5bd3; --pri-soft:#e8eefc;
+  --ok:#1f8a5b; --ok-soft:#e3f4ec;
+  --wait:#b86e00; --wait-soft:#fff3dd;
+  --prop:#7a4cc2; --prop-soft:#f1eafb;
+  --ng:#c8ccd4; --ng-soft:#eceef1;
+  --bad:#c23b3b; --bad-soft:#fbe9e9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;font-size:15px;line-height:1.6}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:6px 12px}
+button:hover{background:#f0f2f5}
+button.pri{background:var(--pri);border-color:var(--pri);color:#fff}
+button.pri:hover{filter:brightness(1.08)}
+button.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+button.bad{background:#fff;border-color:var(--bad);color:var(--bad)}
+button.prop{background:#fff;border-color:var(--prop);color:var(--prop)}
+button.sm{padding:3px 9px;font-size:13px}
+button.link{border:none;background:none;color:var(--pri);padding:2px 4px}
+button:disabled{opacity:.5;cursor:default}
+input,select,textarea{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;color:var(--ink)}
+textarea{width:100%;min-height:120px;resize:vertical}
+label{white-space:nowrap}
+header.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.top-in{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-weight:700;font-size:18px}
+.who{margin-left:auto;color:var(--sub);font-size:13px;display:flex;align-items:center;gap:8px}
+.demo{background:var(--wait-soft);color:var(--wait);font-size:12px;padding:2px 8px;border-radius:99px}
+nav.tabs{max-width:1100px;margin:0 auto;padding:0 16px;display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{border:none;border-bottom:3px solid transparent;border-radius:0;background:none;padding:8px 12px;color:var(--sub);white-space:nowrap}
+nav.tabs button.on{color:var(--pri);border-bottom-color:var(--pri);font-weight:600}
+.badge{display:inline-block;min-width:18px;padding:0 5px;border-radius:99px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;text-align:center;margin-left:4px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:16px;margin:0 0 10px}
+.card h3{font-size:15px;margin:18px 0 6px}
+.hint{color:var(--sub);font-size:13px;margin:2px 0 8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+.msg{border-radius:10px;padding:10px 12px;margin-bottom:10px;border:1px solid}
+.msg p{margin:0 0 8px}
+.msg.wait{background:var(--wait-soft);border-color:#f0d29a}
+.msg.ok{background:var(--ok-soft);border-color:#b9e2cd}
+.msg.prop{background:var(--prop-soft);border-color:#d9c7f2}
+.msg.bad{background:var(--bad-soft);border-color:#f0c4c4}
+.msg.info{background:var(--pri-soft);border-color:#c9d6f6}
+.err{color:var(--bad);font-size:14px;margin-top:6px}
+.empty{color:var(--sub);font-size:14px}
+.st{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;font-weight:600;vertical-align:middle}
+.st-pending{background:var(--wait-soft);color:var(--wait)}
+.st-confirmed{background:var(--ok-soft);color:var(--ok)}
+.st-proposed{background:var(--prop-soft);color:var(--prop)}
+.st-rejected,.st-declined,.st-cancelled,.st-withdrawn{background:var(--ng-soft);color:var(--sub)}
+.st-done{background:#eef0f3;color:var(--sub)}
+/* calendar */
+.cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.cal-nav .ym{font-weight:700;font-size:17px;min-width:120px;text-align:center}
+.cal-head,.cal-body{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.wd{text-align:center;font-size:12px;color:var(--sub);padding:4px 0}
+.wd0{color:#c0392b}.wd6{color:#2f5bd3}
+.cell{border:1px solid var(--line);margin:-1px 0 0 -1px;min-height:84px;padding:3px 4px;background:#fff;cursor:pointer;position:relative;overflow:hidden}
+.cell:hover{background:#fafbff}
+.cell .dn{font-size:12px;font-weight:600}
+.cell.out{background:#fafafa}.cell.out .dn{color:#b5bac3}
+.cell.today .dn{background:var(--pri);color:#fff;border-radius:99px;padding:0 6px}
+.cell.sel{outline:2px solid var(--pri);outline-offset:-2px;z-index:1}
+.cell.ngfull{background:repeating-linear-gradient(135deg,#f1f2f4,#f1f2f4 6px,#e7e9ed 6px,#e7e9ed 12px)}
+.cell.past{background:#f6f6f6}
+.cell .mark{position:absolute;right:5px;top:3px;font-size:12px;color:var(--sub)}
+.cell .mark.free{color:var(--ok)}
+.chip{font-size:11px;line-height:1.35;border-radius:4px;padding:1px 4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.st-pending{background:var(--wait-soft);color:var(--wait);border:1px dashed #e0b25c}
+.chip.st-confirmed{background:var(--ok-soft);color:var(--ok)}
+.chip.st-proposed{background:var(--prop-soft);color:var(--prop);border:1px dashed #b89be6}
+.chip.more{color:var(--sub)}
+.stu-cal .cell{min-height:58px}
+@media(max-width:600px){.cell{min-height:62px;padding:2px}.chip{font-size:10px}}
+/* timeline */
+.tl{position:relative;margin:8px 0 8px 42px;border-left:1px solid var(--line);cursor:crosshair}
+.tl-hour{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.tl-hour span{position:absolute;left:-42px;top:-9px;font-size:11px;color:var(--sub);width:38px;text-align:right}
+.tl-ng{position:absolute;left:0;right:0;background:repeating-linear-gradient(135deg,#eceef1,#eceef1 5px,#e1e4e8 5px,#e1e4e8 10px)}
+.tl-item{position:absolute;left:4px;right:4px;border-radius:6px;font-size:12px;padding:1px 6px;overflow:hidden;cursor:pointer;line-height:1.3}
+.tl-item.busy{background:#dfe3ea;color:#4a5160;cursor:default}
+.tl-item.st-pending{background:var(--wait-soft);border:1px dashed #e0b25c;color:var(--wait)}
+.tl-item.st-confirmed{background:var(--ok-soft);border:1px solid #9fd5bb;color:var(--ok)}
+.tl-item.st-proposed{background:var(--prop-soft);border:1px dashed #b89be6;color:var(--prop)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--sub)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:3px}
+/* lists */
+.list-item{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line)}
+.list-item:last-child{border-bottom:none}
+.list-item .grow{flex:1;min-width:0}
+.clickable{cursor:pointer}.clickable:hover{background:#fafbff}
+table.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:middle}
+.tbl th{font-size:12px;color:var(--sub);font-weight:600}
+.code{font-family:ui-monospace,Menlo,monospace;font-weight:700;letter-spacing:1px;background:#f1f3f6;padding:1px 6px;border-radius:5px}
+.ro{white-space:pre-wrap;background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:10px;min-height:48px}
+.past-item{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}
+.past-item>button{width:100%;text-align:left;border:none;border-radius:0;background:#fafbfc;display:flex;justify-content:space-between}
+.past-item .past-memo{padding:10px 12px;white-space:pre-wrap;border-top:1px solid var(--line)}
+.detail-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.detail-head h2{margin:0;font-size:20px}
+.when{font-size:16px;font-weight:600;margin:6px 0}
+.login{max-width:820px;margin:40px auto;padding:0 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:700px){.login{grid-template-columns:1fr;margin-top:16px}}
+.login .card{padding:24px}
+.big-input{font-size:20px;letter-spacing:3px;text-transform:uppercase;width:100%;text-align:center;font-family:ui-monospace,Menlo,monospace}
+.wdchk label{margin-right:8px}
+.ngrule{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.ngrule .grow{flex:1}
+.group-h{display:flex;align-items:center;gap:8px;margin:14px 0 4px;font-weight:700}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100;max-width:90vw}
+#toast.show{opacity:.95}
+.loading{text-align:center;color:var(--sub);margin-top:80px}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading">読み込み中…</div></div>
+<div id="toast"></div>
+<script>
+/* =========================================================
+   ① Firebaseの設定（Firebaseコンソールからコピーして貼り付け）
+   apiKey が "YOUR_" で始まる間は「デモモード」で動きます
+   ========================================================= */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBe0McNcfUwiwtkoZlRBgXxV2bcWcL3rdw",
+  authDomain: "sotsuron-mendan.firebaseapp.com",
+  databaseURL: "https://sotsuron-mendan-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sotsuron-mendan",
+  storageBucket: "sotsuron-mendan.firebasestorage.app",
+  messagingSenderId: "384996942506",
+  appId: "1:384996942506:web:f844f0ff57bae1a734e6d3"
+};
+const APP_NAME = '卒論面談';
+const MAX_LEN = 60;   // 1回の面談の最大（分）
+const STEP = 5;       // 時間の刻み（分）
+const MEMO_BEFORE = 10; // 面談メモが書けるようになる時刻（開始の何分前か）
+const DEFAULT_GAS_TOKEN = 'jK2huxB4i8MMNFJX8Wn9'; // gas_mail.gs の TOKEN と同じ
+
+const DEMO = String(FIREBASE_CONFIG.apiKey).startsWith('YOUR') || new URLSearchParams(location.search).has('demo');
+
+/* ===== 小道具 ===== */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const WD = ['日','月','火','水','木','金','土'];
+const parseD = d => { const [y, m, dd] = d.split('-').map(Number); return {y, m, d: dd}; };
+const wday = d => { const p = parseD(d); return new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay(); };
+const addDays = (d, n) => { const p = parseD(d); return new Date(Date.UTC(p.y, p.m - 1, p.d + n)).toISOString().slice(0, 10); };
+const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1 + n, 1)); return t.toISOString().slice(0, 7); };
+const weekStart = d => addDays(d, -wday(d));
+const todayStr = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+const toAt = (d, min) => { const p = parseD(d); return Date.UTC(p.y, p.m - 1, p.d) + min * 60000 - 9 * 3600e3; };
+const hm = m => `${Math.floor(m / 60)}:${pad(m % 60)}`;
+const hmJa = m => `${Math.floor(m / 60)}時${pad(m % 60)}分`;
+const dateJa = d => { const p = parseD(d); return `${p.m}月${p.d}日${WD[wday(d)]}曜日`; };
+const dateShort = d => { const p = parseD(d); return `${p.m}月${p.d}日（${WD[wday(d)]}）`; };
+const md = d => { const p = parseD(d); return `${p.m}月${p.d}日`; };
+const ymJa = ym => { const [y, m] = ym.split('-').map(Number); return `${y}年${m}月`; };
+const rangeJa = (d, s, e) => `${dateJa(d)}の${hmJa(s)}〜${hmJa(e)}`;
+const rangeShort = (d, s, e) => `${dateShort(d)} ${hm(s)}〜${hm(e)}`;
+const overlap = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const genCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (const x of crypto.getRandomValues(new Uint32Array(8))) s += c[x % c.length]; return s; };
+const fmtTs = t => { if (!t) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${pad(d.getUTCMinutes())}`; };
+const getLS = k => { try { return localStorage.getItem('mendan-' + k); } catch (e) { return null; } };
+const setLS = (k, v) => { try { localStorage.setItem('mendan-' + k, v); } catch (e) {} };
+const delLS = k => { try { localStorage.removeItem('mendan-' + k); } catch (e) {} };
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 3200); }
+
+/* ===== データの保存先（Firebase / デモ用ブラウザ内） ===== */
+function LocalBackend() {
+  const KEY = 'mendan-demo-db';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
+  let tree = load();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(tree)); } catch (e) {} };
+  const parts = p => p.split('/').filter(Boolean);
+  const clone = v => v == null ? null : JSON.parse(JSON.stringify(v));
+  function getAt(p) { let n = tree; for (const k of parts(p)) { if (n == null || typeof n !== 'object') return null; n = n[k]; } return n === undefined ? null : n; }
+  function setAt(p, v) {
+    const ks = parts(p); let n = tree; const stack = [];
+    for (let i = 0; i < ks.length - 1; i++) {
+      if (n[ks[i]] == null || typeof n[ks[i]] !== 'object') { if (v == null) return; n[ks[i]] = {}; }
+      stack.push([n, ks[i]]); n = n[ks[i]];
+    }
+    const last = ks[ks.length - 1];
+    if (v == null) delete n[last]; else n[last] = clone(v);
+    for (let i = stack.length - 1; i >= 0; i--) { const [par, k] = stack[i]; if (par[k] && typeof par[k] === 'object' && !Object.keys(par[k]).length) delete par[k]; else break; }
+  }
+  const ls = new Set();
+  const fire = () => { for (const l of ls) l.cb(clone(getAt(l.path))); };
+  window.addEventListener('storage', e => { if (e.key === KEY) { tree = load(); fire(); } });
+  let authCb = null, user = null;
+  try { user = JSON.parse(sessionStorage.getItem('mendan-demo-user')); } catch (e) {}
+  const setUser = u => { user = u; try { sessionStorage.setItem('mendan-demo-user', JSON.stringify(u)); } catch (e) {} authCb && authCb(u); };
+  return {
+    on(path, cb) { const l = {path, cb}; ls.add(l); setTimeout(() => cb(clone(getAt(path)))); return () => ls.delete(l); },
+    async get(path) { return clone(getAt(path)); },
+    async update(map) { for (const [p, v] of Object.entries(map)) setAt(p, v); save(); setTimeout(fire); },
+    onAuth(cb) { authCb = cb; setTimeout(() => cb(user)); },
+    async signInTeacher() { setUser({uid: 'demo-teacher', isAnonymous: false, email: 'teacher@demo'}); },
+    async signInStudent() { setUser({uid: 'demo-' + newId(), isAnonymous: true}); },
+    async signOut() { setUser(null); }
+  };
+}
+function FireBackend() {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.database(), auth = firebase.auth();
+  return {
+    on(path, cb) { const ref = db.ref(path); const h = s => cb(s.val()); ref.on('value', h, e => { console.error(path, e); if (path.startsWith('students/')) forceLogout('データを読み込めませんでした。もう一度コードを入力してください。'); }); return () => ref.off('value', h); },
+    async get(path) { return (await db.ref(path).get()).val(); },
+    update(map) { return db.ref().update(map); },
+    onAuth(cb) { auth.onAuthStateChanged(u => cb(u ? {uid: u.uid, isAnonymous: u.isAnonymous, email: u.email} : null)); },
+    async signInTeacher() { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); },
+    async signInStudent() { await auth.signInAnonymously(); },
+    signOut() { return auth.signOut(); }
+  };
+}
+
+/* ===== 状態 ===== */
+const S = {
+  user: null, role: null, code: null, me: null,
+  students: {}, slots: {}, ng: {}, config: {},
+  view: 'cal', detail: null, back: null,
+  calMonth: todayStr().slice(0, 7), selDate: todayStr(),
+  expanded: new Set(), proposing: null, editing: null, stuOpen: null,
+  reqErr: '', err: '', loading: true, gotData: false
+};
+let subs = [];
+const kept = {};
+const cfg = () => {
+  const c = S.config || {};
+  return { hours: { start: 540, end: 1140, ...(c.hours || {}) }, gasUrl: c.gasUrl || '', gasToken: c.gasToken || DEFAULT_GAS_TOKEN };
+};
+
+/* ===== NG 判定 ===== */
+function ruleApplies(r, d) {
+  if (r.scope === 'month') return d.slice(0, 7) === r.period;
+  if (r.scope === 'week') return weekStart(d) === r.period;
+  return true;
+}
+function mergeIv(list) {
+  const a = list.filter(x => x[1] > x[0]).sort((x, y) => x[0] - y[0]); const out = [];
+  for (const iv of a) { const l = out[out.length - 1]; if (l && iv[0] <= l[1]) l[1] = Math.max(l[1], iv[1]); else out.push([iv[0], iv[1]]); }
+  return out;
+}
+function ngIntervals(date, withHours = true) {
+  const {start: hs, end: he} = cfg().hours; const w = wday(date);
+  const out = withHours ? [[0, hs], [he, 1440]] : [];
+  for (const r of Object.values(S.ng || {})) {
+    if (!ruleApplies(r, date)) continue;
+    const wds = Object.values(r.weekdays || {}).map(Number);
+    if (r.type === 'weekday' && wds.includes(w)) out.push([0, 1440]);
+    else if (r.type === 'time') out.push([+r.start, +r.end]);
+    else if (r.type === 'weekdayTime' && wds.includes(w)) out.push([+r.start, +r.end]);
+    else if (r.type === 'date' && r.date === date) out.push(r.allDay ? [0, 1440] : [+r.start, +r.end]);
+  }
+  return mergeIv(out);
+}
+const isNG = (date, s, e) => ngIntervals(date).some(([a, b]) => overlap(s, e, a, b));
+function freeMinutes(date) {
+  const {start: hs, end: he} = cfg().hours; let free = he - hs;
+  for (const [a, b] of ngIntervals(date, false)) free -= Math.max(0, Math.min(b, he) - Math.max(a, hs));
+  return free;
+}
+function findConflict(date, s, e, exceptMid) {
+  for (const [mid, sl] of Object.entries(S.slots || {})) {
+    if (mid === exceptMid || sl.date !== date) continue;
+    if (overlap(s, e, +sl.start, +sl.end)) return sl;
+  }
+  return null;
+}
+
+/* ===== 面談データの補助 ===== */
+const SHOW = ['pending', 'proposed', 'confirmed'];
+const disp = m => m.status === 'proposed' && m.proposal ? m.proposal : m;
+function roundMap(meetings) {
+  const list = Object.entries(meetings || {}).filter(([, m]) => m.status === 'confirmed').sort((a, b) => a[1].startAt - b[1].startAt);
+  const r = {}; list.forEach(([id], i) => r[id] = i + 1); return r;
+}
+function allMeetings() {
+  const out = [];
+  for (const [code, st] of Object.entries(S.students || {})) for (const [mid, m] of Object.entries(st.meetings || {})) out.push({...m, code, mid, name: st.name});
+  return out;
+}
+function statusLabel(m, forStudent) {
+  if (m.status === 'confirmed' && m.endAt < Date.now()) return ['done', '実施済み'];
+  return [m.status, {pending: forStudent ? '返答待ち' : '面談希望', confirmed: '確定', proposed: '日程提案中', rejected: 'NG', declined: '提案を辞退', cancelled: '取り消し', withdrawn: '取り下げ'}[m.status] || m.status];
+}
+const stBadge = (m, fs) => { const [c, l] = statusLabel(m, fs); return `<span class="st st-${c}">${l}</span>`; };
+
+/* ===== メール通知（Google Apps Script 経由・任意） ===== */
+function sendMail(payload) {
+  const {gasUrl, gasToken} = cfg();
+  if (!gasUrl) return;
+  const appUrl = location.origin + location.pathname;
+  payload.body = (payload.body || '') + `\n\n――――――――\n${APP_NAME}アプリ：${appUrl}`;
+  fetch(gasUrl, {method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({...payload, token: gasToken})}).catch(e => console.warn('mail', e));
+}
+const mailTeacher = (subject, body) => sendMail({toTeacher: true, subject, body});
+function mailStudent(code, subject, body) {
+  const st = S.students[code]; if (!st || !st.email) return;
+  sendMail({to: st.email, subject, body: `${st.name}さん\n\n${body}`});
+}
+
+/* ===== 画面の再描画 ===== */
+let pendingRender = false;
+function isTyping() { const a = document.activeElement; return a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && /^(text|email|url|search)$/.test(a.type))); }
+function requestRender() { if (isTyping()) { pendingRender = true; return; } render(); }
+document.addEventListener('focusout', () => setTimeout(() => { if (pendingRender && !isTyping()) render(); }, 0));
+setInterval(requestRender, 30000);
+
+function render() {
+  pendingRender = false;
+  const act = document.activeElement, actId = act && act.id;
+  let ss = null, se = null; try { ss = act.selectionStart; se = act.selectionEnd; } catch (e) {}
+  const y = window.scrollY;
+  $('#app').innerHTML = view();
+  for (const [id, v] of Object.entries(kept)) {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.keep === undefined || el.dataset.start) continue;
+    if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  }
+  document.querySelectorAll('select[data-start]').forEach(fillEnd);
+  if (actId) { const el = document.getElementById(actId); if (el) { el.focus({preventScroll: true}); try { if (ss != null) el.setSelectionRange(ss, se); } catch (e) {} } }
+  window.scrollTo(0, y);
+}
+function timeOpts(from, to, sel) { let h = ''; for (let t = from; t < to; t += STEP) h += `<option value="${t}"${t === sel ? ' selected' : ''}>${hm(t)}</option>`; return h; }
+function startSel(id, from, to, extra = '') { return `<select id="${id}" data-keep ${extra}>${timeOpts(from, to)}</select>`; }
+function endSel(id, startId, maxLen, hard) { return `<select id="${id}" data-keep data-start="${startId}" data-maxlen="${maxLen}" data-hard="${hard}"></select>`; }
+function fillEnd(sel) {
+  const ss = document.getElementById(sel.dataset.start); if (!ss) return;
+  const s = +ss.value, max = +(sel.dataset.maxlen || MAX_LEN), hard = +(sel.dataset.hard || 1440);
+  let h = ''; for (let e = s + STEP; e <= Math.min(s + max, hard); e += STEP) h += `<option value="${e}">${hm(e)}</option>`;
+  sel.innerHTML = h;
+  const has = v => [...sel.options].some(o => +o.value === v);
+  const cur = kept[sel.id] != null ? +kept[sel.id] : NaN;
+  if (has(cur)) sel.value = cur;
+  else { const want = Math.min(s + 30, s + max); sel.value = has(want) ? want : (sel.options.length ? sel.options[sel.options.length - 1].value : ''); }
+}
+function setKept(id, v) { kept[id] = v; const el = document.getElementById(id); if (el) { if (el.type === 'checkbox') el.checked = v; else el.value = v; } }
+function clearKept(...ids) { for (const id of ids) delete kept[id]; }
+const val = id => { const el = document.getElementById(id); return el ? (el.type === 'checkbox' ? el.checked : el.value) : ''; };
+
+/* ===== 共通パーツ ===== */
+function header() {
+  const who = S.role === 'teacher' ? `教員（${esc(S.user.email || '')}）` : S.role === 'student' ? `${esc(S.me?.name || '')} さん` : '';
+  return `<header class="top"><div class="top-in"><span class="logo">${APP_NAME}</span>${DEMO ? '<span class="demo">デモモード</span>' : ''}
+    ${S.role ? `<span class="who">${who}<button class="sm" data-act="logout">ログアウト</button></span>` : ''}</div>
+    ${S.role === 'teacher' ? teacherTabs() : ''}</header>`;
+}
+function monthNav() {
+  return `<div class="cal-nav"><button class="sm" data-act="calMove" data-n="-1">◀</button><span class="ym">${ymJa(S.calMonth)}</span><button class="sm" data-act="calMove" data-n="1">▶</button><button class="sm" data-act="calToday">今日</button></div>`;
+}
+function monthGrid(cellFn, cls = '') {
+  const ym = S.calMonth, first = ym + '-01', start = addDays(first, -wday(first));
+  let h = `<div class="cal ${cls}"><div class="cal-head">${WD.map((w, i) => `<div class="wd wd${i}">${w}</div>`).join('')}</div><div class="cal-body">`;
+  for (let i = 0; i < 42; i++) { const d = addDays(start, i); if (i % 7 === 0 && i >= 28 && d.slice(0, 7) !== ym) break; h += cellFn(d, d.slice(0, 7) === ym); }
+  return h + '</div></div>';
+}
+function timeline(date, items, target) {
+  const {start: hs, end: he} = cfg().hours;
+  const t0 = Math.floor(hs / 60) * 60, t1 = Math.ceil(he / 60) * 60, PX = 1.1;
+  let h = `<div class="tl" style="height:${(t1 - t0) * PX}px" data-act="tlClick" data-target="${target || ''}" data-t0="${t0}" data-t1="${t1}" data-px="${PX}">`;
+  for (let t = t0; t <= t1; t += 60) h += `<div class="tl-hour" style="top:${(t - t0) * PX}px"><span>${t / 60}:00</span></div>`;
+  for (const [a, b] of ngIntervals(date)) { const s = Math.max(a, t0), e = Math.min(b, t1); if (e > s) h += `<div class="tl-ng" style="top:${(s - t0) * PX}px;height:${(e - s) * PX}px"></div>`; }
+  for (const it of items) { const s = Math.max(it.start, t0), e = Math.min(it.end, t1); if (e <= s) continue; h += `<div class="tl-item ${it.cls}" style="top:${(s - t0) * PX}px;height:${Math.max((e - s) * PX, 14)}px" ${it.attrs || ''}>${esc(it.label)}</div>`; }
+  return h + '</div>';
+}
+const legend = (student) => `<div class="legend"><span><i style="background:#e1e4e8"></i>NG（面談不可）</span>${student ? '<span><i style="background:#dfe3ea"></i>ほかの予定あり</span>' : ''}<span><i style="background:var(--wait-soft);border:1px dashed #e0b25c"></i>${student ? '返答待ち' : '面談希望'}</span><span><i style="background:var(--prop-soft);border:1px dashed #b89be6"></i>日程提案中</span><span><i style="background:var(--ok-soft)"></i>確定</span></div>`;
+
+/* ===== 画面：ログイン ===== */
+function view() {
+  if (S.loading) return '<div class="loading">読み込み中…</div>';
+  if (!S.role) return header() + loginView();
+  if (S.view === 'detail') return header() + `<main>${detailView()}</main>`;
+  return header() + `<main>${S.role === 'teacher' ? teacherMain() : studentMain()}</main>`;
+}
+function loginView() {
+  const q = new URLSearchParams(location.search).get('code') || '';
+  if (q && kept['login-code'] == null) kept['login-code'] = q.toUpperCase();
+  return `<div class="login">
+    <div class="card"><h2>学生の方</h2><p class="hint">先生から受け取った8文字のコードを入力してください。</p>
+      <input id="login-code" data-keep class="big-input" maxlength="8" autocomplete="off" placeholder="XXXXXXXX">
+      <div style="margin-top:12px"><button class="pri" style="width:100%" data-act="studentLogin">入る</button></div></div>
+    <div class="card"><h2>教員の方</h2><p class="hint">登録済みのGoogleアカウントでログインします。</p>
+      <button class="pri" style="width:100%" data-act="teacherLogin">Googleでログイン</button></div>
+  </div>
+  <div style="max-width:820px;margin:0 auto;padding:0 16px">
+    ${S.err ? `<div class="msg bad">${esc(S.err)}</div>` : ''}
+    ${DEMO ? `<div class="msg info">デモモードです（Firebase未設定）。データはこのブラウザの中だけに保存されます。教員と生徒を<b>別々のタブ</b>で開くと、やり取りを同時に試せます。</div>` : ''}
+  </div>`;
+}
+</script>
+<script>
+/* =========================================================
+   教員画面
+   ========================================================= */
+function teacherTabs() {
+  const n = allMeetings().filter(m => m.status === 'pending').length;
+  const tab = (v, l, b = '') => `<button class="${S.view === v || (v === 'cal' && S.view === 'detail') ? 'on' : ''}" data-act="tab" data-v="${v}">${l}${b}</button>`;
+  return `<nav class="tabs">${tab('cal', 'カレンダー', n ? `<span class="badge">${n}</span>` : '')}${tab('ng', 'NG設定')}${tab('students', '生徒とコード')}${tab('settings', '設定')}</nav>`;
+}
+function teacherMain() {
+  if (S.view === 'ng') return ngView();
+  if (S.view === 'students') return studentsView();
+  if (S.view === 'settings') return settingsView();
+  return teacherCal();
+}
+function proposeForm(m) {
+  const {start: hs, end: he} = cfg().hours, id = m.mid;
+  if (kept['pr-d-' + id] == null) kept['pr-d-' + id] = m.date;
+  return `<div class="msg prop" style="margin-top:8px"><p><b>別の日程を提案</b>（生徒が承諾すると確定します）</p>
+    <div class="row"><input type="date" id="pr-d-${id}" data-keep min="${todayStr()}"> ${startSel('pr-s-' + id, hs, he)} 〜 ${endSel('pr-e-' + id, 'pr-s-' + id, MAX_LEN, he)}
+    <button class="prop" data-act="propose" data-code="${m.code}" data-mid="${id}">NGにしてこの日程を提案</button><button class="sm" data-act="closePropose">やめる</button></div>
+    <div class="err" id="pr-err-${id}"></div></div>`;
+}
+function requestCard(m) {
+  return `<div class="msg wait"><p><b>${esc(m.name)}</b>が${rangeJa(m.date, m.start, m.end)}に面談希望です</p>
+    ${m.consult ? `<p class="hint">事前相談あり：${esc(m.consult.slice(0, 60))}${m.consult.length > 60 ? '…' : ''}</p>` : ''}
+    <div class="row"><button class="ok" data-act="approve" data-code="${m.code}" data-mid="${m.mid}">OK（確定）</button>
+    <button class="bad" data-act="reject" data-code="${m.code}" data-mid="${m.mid}">NG</button>
+    <button class="prop" data-act="openPropose" data-mid="${m.mid}">NG・別日程を提案</button>
+    <button class="sm link" data-act="openDetail" data-code="${m.code}" data-mid="${m.mid}">面談詳細 →</button></div>
+    ${S.proposing === m.mid ? proposeForm(m) : ''}</div>`;
+}
+function teacherNotices() {
+  const out = [];
+  for (const m of allMeetings()) {
+    if (m.teacherSeen !== false) continue;
+    let t = '';
+    if (m.status === 'confirmed') t = `<b>${esc(m.name)}</b>が提案した日程（${rangeJa(m.date, m.start, m.end)}）を承諾しました。面談が確定しました。`;
+    else if (m.status === 'declined') t = `<b>${esc(m.name)}</b>が提案した日程（${m.proposal ? rangeJa(m.proposal.date, m.proposal.start, m.proposal.end) : ''}）を辞退しました。`;
+    else if (m.status === 'withdrawn') t = `<b>${esc(m.name)}</b>が${rangeJa(m.date, m.start, m.end)}の面談希望を取り下げました。`;
+    else continue;
+    out.push(`<div class="msg ${m.status === 'confirmed' ? 'ok' : 'bad'}"><p>${t}</p><button class="sm" data-act="tSeen" data-code="${m.code}" data-mid="${m.mid}">確認</button></div>`);
+  }
+  return out.join('');
+}
+function teacherCal() {
+  const ms = allMeetings();
+  const pend = ms.filter(m => m.status === 'pending').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const proposed = ms.filter(m => m.status === 'proposed');
+  const today = todayStr();
+  const byDate = {};
+  for (const m of ms) { if (!SHOW.includes(m.status)) continue; const d = disp(m); (byDate[d.date] = byDate[d.date] || []).push(m); }
+  const cell = (d, inm) => {
+    const list = (byDate[d] || []).sort((a, b) => disp(a).start - disp(b).start);
+    const free = freeMinutes(d);
+    const cls = ['cell', inm ? '' : 'out', d === today ? 'today' : '', d === S.selDate ? 'sel' : '', free <= 0 ? 'ngfull' : ''].join(' ');
+    const chips = list.slice(0, 3).map(m => `<div class="chip st-${m.status}" data-act="openDetail" data-code="${m.code}" data-mid="${m.mid}">${hm(disp(m).start)} ${esc(m.name)}</div>`).join('') + (list.length > 3 ? `<div class="chip more">+${list.length - 3}件</div>` : '');
+    return `<div class="${cls}" data-act="selDate" data-date="${d}"><span class="dn">${parseD(d).d}</span>${free <= 0 ? '<span class="mark">NG</span>' : ''}${chips}</div>`;
+  };
+  return `
+    ${pend.length ? `<div class="card"><h2>面談希望（${pend.length}件）</h2>${pend.map(requestCard).join('')}</div>` : ''}
+    ${teacherNotices() ? `<div class="card"><h2>お知らせ</h2>${teacherNotices()}</div>` : ''}
+    ${proposed.length ? `<div class="card"><h2>生徒の返答待ち（日程提案中）</h2>${proposed.map(m => `<div class="list-item clickable" data-act="openDetail" data-code="${m.code}" data-mid="${m.mid}"><span class="st st-proposed">提案中</span><span class="grow">${esc(m.name)}：${rangeShort(m.proposal.date, m.proposal.start, m.proposal.end)}</span></div>`).join('')}</div>` : ''}
+    <div class="grid2">
+      <div class="card">${monthNav()}${monthGrid(cell)}<div style="margin-top:8px">${legend(false)}</div></div>
+      <div class="card">${teacherDay()}</div>
+    </div>`;
+}
+function teacherDay() {
+  const d = S.selDate, {start: hs, end: he} = cfg().hours;
+  const list = allMeetings().filter(m => SHOW.includes(m.status) && disp(m).date === d).sort((a, b) => disp(a).start - disp(b).start);
+  const items = list.map(m => ({start: disp(m).start, end: disp(m).end, cls: 'st-' + m.status, label: `${hm(disp(m).start)}〜${hm(disp(m).end)} ${m.name}`, attrs: `data-act="openDetail" data-code="${m.code}" data-mid="${m.mid}"`}));
+  const studs = Object.entries(S.students || {}).sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+  const ngs = ngIntervals(d, false);
+  return `<h2>${dateShort(d)}</h2>
+    <p class="hint">${ngs.length ? 'NG：' + ngs.map(([a, b]) => a <= 0 && b >= 1440 ? '終日' : `${hm(a)}〜${hm(Math.min(b, 1440))}`).join('、') : 'NG設定なし'}（受付時間 ${hm(hs)}〜${hm(he)}）</p>
+    ${list.length ? list.map(m => `<div class="list-item clickable" data-act="openDetail" data-code="${m.code}" data-mid="${m.mid}">${stBadge(m)}<span class="grow">${hm(disp(m).start)}〜${hm(disp(m).end)}　<b>${esc(m.name)}</b></span><span>→</span></div>`).join('') : '<p class="empty">この日の面談はありません。</p>'}
+    ${timeline(d, items, 'tc')}
+    <h3>この日に面談を設定する</h3>
+    <p class="hint">教員が設定した面談は、生徒の承認なしで確定します。タイムラインをクリックすると開始時刻を選べます。</p>
+    ${studs.length ? `<div class="row"><select id="tc-stu" data-keep>${studs.map(([c, s]) => `<option value="${c}">${esc(s.name)}</option>`).join('')}</select>
+      ${startSel('tc-s', hs, he)} 〜 ${endSel('tc-e', 'tc-s', MAX_LEN, 1440)}
+      <button class="pri" data-act="teacherCreate">設定する</button></div><div class="err">${esc(S.tcErr || '')}</div>`
+      : '<p class="empty">先に「生徒とコード」タブで生徒を登録してください。</p>'}`;
+}
+
+/* ----- NG設定 ----- */
+function ngRuleText(r) {
+  const wds = Object.values(r.weekdays || {}).map(Number).sort().map(i => WD[i]).join('・');
+  if (r.type === 'weekday') return `NG曜日：${wds}曜日（終日）`;
+  if (r.type === 'time') return `NG時間帯（毎日）：${hm(r.start)}〜${hm(r.end)}`;
+  if (r.type === 'weekdayTime') return `曜日ごとのNG時間帯：${wds}曜日 ${hm(r.start)}〜${hm(r.end)}`;
+  if (r.type === 'date') return `特定の日：${dateShort(r.date)} ${r.allDay ? '終日' : `${hm(r.start)}〜${hm(r.end)}`}`;
+  return '';
+}
+function ngView() {
+  const {start: hs, end: he} = cfg().hours;
+  const scope = kept['ng-scope'] || 'month', type = kept['ng-type'] || 'weekday';
+  const curM = todayStr().slice(0, 7);
+  const monthOpts = Array.from({length: 15}, (_, i) => addMonths(curM, i - 2)).map(m => `<option value="${m}"${m === curM ? ' selected' : ''}>${ymJa(m)}</option>`).join('');
+  if (kept['ng-week'] == null) kept['ng-week'] = todayStr();
+  if (kept['ng-date'] == null) kept['ng-date'] = todayStr();
+  const wk = kept['ng-week'] ? weekStart(kept['ng-week']) : null;
+  const wdChecks = `<div class="wdchk">${WD.map((w, i) => `<label><input type="checkbox" id="ng-wd-${i}" data-keep> ${w}</label>`).join('')}</div>`;
+  const times = `${startSel('ng-s', 0, 1440)} 〜 ${endSel('ng-e', 'ng-s', 1440, 1440)}`;
+  if (kept['ng-s'] == null) kept['ng-s'] = String(hs);
+
+  // 一覧
+  const rules = Object.entries(S.ng || {});
+  const groups = {};
+  for (const [id, r] of rules) { const k = r.scope === 'always' ? 'always' : `${r.scope}:${r.period}`; (groups[k] = groups[k] || []).push([id, r]); }
+  const keys = Object.keys(groups).sort((a, b) => a === 'always' ? -1 : b === 'always' ? 1 : a.split(':')[1].localeCompare(b.split(':')[1]));
+  const gTitle = k => { if (k === 'always') return 'いつでも（期間指定なし）'; const [s, p] = k.split(':'); return s === 'month' ? ymJa(p) : `${dateShort(p)}〜${dateShort(addDays(p, 6))}の週`; };
+  const listHtml = keys.length ? keys.map(k => `<div class="group-h">${gTitle(k)}${k !== 'always' ? `<button class="sm" data-act="ngCopy" data-k="${k}">${k.startsWith('month') ? '翌月' : '翌週'}にコピー</button>` : ''}<button class="sm bad" data-act="ngDelGroup" data-k="${k}">まとめて削除</button></div>` +
+    groups[k].map(([id, r]) => `<div class="ngrule"><span class="grow">${ngRuleText(r)}</span><button class="sm" data-act="ngDel" data-id="${id}">削除</button></div>`).join('')).join('')
+    : '<p class="empty">NG設定はまだありません。</p>';
+
+  return `<div class="grid2">
+    <div class="card"><h2>NGを追加する</h2>
+      <p class="hint">生徒はNGの日時を選べません。受付時間（${hm(hs)}〜${hm(he)}）の外も自動的にNGになります（「設定」タブで変更）。</p>
+      <h3>1. 適用する期間</h3>
+      <div class="row"><select id="ng-scope" data-keep data-rerender>
+        <option value="month"${scope === 'month' ? ' selected' : ''}>月ごと</option><option value="week"${scope === 'week' ? ' selected' : ''}>週ごと</option><option value="always"${scope === 'always' ? ' selected' : ''}>いつでも（期間指定なし）</option></select>
+        ${scope === 'month' ? `<select id="ng-month" data-keep>${monthOpts}</select>` : ''}
+        ${scope === 'week' ? `<input type="date" id="ng-week" data-keep data-rerender> <span class="hint">${wk ? `${dateShort(wk)}〜${dateShort(addDays(wk, 6))}の週` : ''}</span>` : ''}
+      </div>
+      <h3>2. NGの種類</h3>
+      <div class="row"><select id="ng-type" data-keep data-rerender>
+        <option value="weekday"${type === 'weekday' ? ' selected' : ''}>NG曜日（終日）</option>
+        <option value="time"${type === 'time' ? ' selected' : ''}>NG時間帯（毎日）</option>
+        <option value="weekdayTime"${type === 'weekdayTime' ? ' selected' : ''}>曜日ごとのNG時間帯</option>
+        <option value="date"${type === 'date' ? ' selected' : ''}>特定の日</option></select></div>
+      <div style="margin-top:10px">
+        ${type === 'weekday' ? wdChecks : ''}
+        ${type === 'time' ? `<div class="row">${times}</div>` : ''}
+        ${type === 'weekdayTime' ? wdChecks + `<div class="row" style="margin-top:6px">${times}</div>` : ''}
+        ${type === 'date' ? `<div class="row"><input type="date" id="ng-date" data-keep> <label><input type="checkbox" id="ng-allday" data-keep data-rerender> 終日</label> ${kept['ng-allday'] ? '' : times}</div><p class="hint">※「特定の日」は期間の設定に関係なく、その日にだけ適用されます。</p>` : ''}
+      </div>
+      <div style="margin-top:14px"><button class="pri" data-act="ngAdd">追加する</button></div>
+      <div class="err">${esc(S.ngErr || '')}</div>
+    </div>
+    <div class="card"><h2>設定済みのNG</h2>${listHtml}</div>
+  </div>`;
+}
+
+/* ----- 生徒とコード ----- */
+function studentsView() {
+  const studs = Object.entries(S.students || {}).sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0));
+  const rows = studs.map(([code, s]) => {
+    const r = roundMap(s.meetings); const cnt = Object.keys(r).length;
+    if (S.editing === code) {
+      if (kept['ed-name'] == null) kept['ed-name'] = s.name;
+      if (kept['ed-email'] == null) kept['ed-email'] = s.email || '';
+      return `<tr><td><input id="ed-name" data-keep style="width:100%"></td><td><span class="code">${code}</span></td><td><input id="ed-email" data-keep type="email" style="width:100%"></td><td>${cnt}回</td>
+        <td><div class="row"><button class="sm pri" data-act="stuSave" data-code="${code}">保存</button><button class="sm" data-act="stuEditCancel">やめる</button></div></td></tr>`;
+    }
+    const ms = Object.entries(s.meetings || {}).filter(([, m]) => SHOW.includes(m.status)).sort((a, b) => b[1].startAt - a[1].startAt);
+    return `<tr><td><b>${esc(s.name)}</b></td><td><span class="code">${code}</span></td><td>${esc(s.email || '—')}</td><td>${cnt}回</td>
+      <td><div class="row"><button class="sm" data-act="stuMeetings" data-code="${code}">面談一覧</button><button class="sm" data-act="copyInvite" data-code="${code}">案内文をコピー</button><button class="sm" data-act="stuEdit" data-code="${code}">編集</button><button class="sm bad" data-act="stuDel" data-code="${code}">削除</button></div></td></tr>
+      ${S.stuOpen === code ? `<tr><td colspan="5">${ms.length ? ms.map(([mid, m]) => `<div class="list-item clickable" data-act="openDetail" data-code="${code}" data-mid="${mid}">${stBadge(m)}<span class="grow">${r[mid] ? `第${r[mid]}回面談　` : ''}${rangeShort(disp(m).date, disp(m).start, disp(m).end)}</span><span>→</span></div>`).join('') : '<p class="empty">面談はまだありません。</p>'}</td></tr>` : ''}`;
+  }).join('');
+  return `<div class="card"><h2>生徒を登録する</h2>
+      <p class="hint">名前を登録するとコードが発行されます。コードを生徒に伝えると、生徒はそのコードで自分の画面に入れます。メールアドレスは通知メール用（任意）です。</p>
+      <div class="row"><input id="stu-name" data-keep placeholder="名前（例：早稲田 花子）"> <input id="stu-email" data-keep type="email" placeholder="メールアドレス（任意）" style="min-width:240px"> <button class="pri" data-act="stuAdd">登録してコードを発行</button></div>
+      <div class="err">${esc(S.stuErr || '')}</div></div>
+    <div class="card"><h2>登録済みの生徒（${studs.length}人）</h2>
+      ${studs.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>名前</th><th>コード</th><th>メール</th><th>確定面談</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">まだ登録されていません。</p>'}</div>`;
+}
+
+/* ----- 設定 ----- */
+function settingsView() {
+  const c = cfg();
+  for (const [k, v] of [['set-hs', c.hours.start], ['set-he', c.hours.end], ['set-gas', c.gasUrl], ['set-token', c.gasToken]]) if (kept[k] == null) kept[k] = String(v);
+  const appUrl = location.origin + location.pathname;
+  return `<div class="card"><h2>受付時間</h2><p class="hint">生徒が面談を希望できる時間帯です。これ以外の時間は自動的にNGになります。</p>
+      <div class="row"><select id="set-hs" data-keep>${timeOpts(6 * 60, 23 * 60)}</select> 〜 <select id="set-he" data-keep>${timeOpts(7 * 60, 24 * 60 + 1)}</select>
+      <button class="pri" data-act="saveHours">保存</button></div></div>
+    <div class="card"><h2>メール通知（任意）</h2>
+      <p class="hint">Google Apps Script の「ウェブアプリURL」と「合言葉」を入れると、面談希望・確定・NGなどのときにメールが届きます（設定方法は手順書を参照）。空欄ならアプリ内の表示だけで動きます。</p>
+      <div style="display:grid;gap:8px;max-width:640px">
+        <label>ウェブアプリURL<br><input id="set-gas" data-keep type="url" style="width:100%" placeholder="https://script.google.com/macros/s/……/exec"></label>
+        <label>合言葉（スクリプトの TOKEN と同じもの）<br><input id="set-token" data-keep style="width:100%"></label>
+      </div>
+      <div class="row" style="margin-top:10px"><button class="pri" data-act="saveMail">保存</button><button data-act="testMail">教員あてにテストメールを送る</button></div></div>
+    <div class="card"><h2>生徒に伝えるURL</h2><p><a href="${esc(appUrl)}" target="_blank">${esc(appUrl)}</a></p>
+      <p class="hint">「生徒とコード」タブの「案内文をコピー」を使うと、コード入りのURLをまとめてコピーできます。</p></div>`;
+}
+</script>
+<script>
+/* =========================================================
+   生徒画面
+   ========================================================= */
+function studentMain() {
+  const me = S.me || {}, ms = Object.entries(me.meetings || {}).map(([mid, m]) => ({...m, mid, code: S.code}));
+  const r = roundMap(me.meetings), now = Date.now();
+  const banners = [];
+  for (const m of ms.filter(m => m.status === 'pending').sort((a, b) => a.startAt - b.startAt))
+    banners.push(`<div class="msg wait"><p><b>面談希望の返答待ち</b>：${rangeJa(m.date, m.start, m.end)}</p><div class="row"><button class="sm" data-act="openDetail" data-mid="${m.mid}">面談詳細</button><button class="sm bad" data-act="withdraw" data-mid="${m.mid}">希望を取り下げる</button></div></div>`);
+  for (const m of ms.filter(m => m.status === 'proposed'))
+    banners.push(`<div class="msg prop"><p><b>先生から別の日程の提案があります</b></p><p>あなたの希望：${rangeJa(m.date, m.start, m.end)}<br>先生の提案：<b>${rangeJa(m.proposal.date, m.proposal.start, m.proposal.end)}</b></p>
+      <div class="row"><button class="ok" data-act="accept" data-mid="${m.mid}">この日程で確定する</button><button class="bad" data-act="decline" data-mid="${m.mid}">辞退する</button></div></div>`);
+  for (const m of ms.filter(m => m.studentSeen === false && m.status !== 'proposed')) {
+    let t = '', c = 'ok';
+    if (m.status === 'confirmed') t = m.createdBy === 'teacher' ? `先生が面談を設定しました：<b>${rangeJa(m.date, m.start, m.end)}</b>` : `面談が確定しました：<b>${rangeJa(m.date, m.start, m.end)}</b>`;
+    else if (m.status === 'rejected') { t = `${rangeJa(m.date, m.start, m.end)}の面談希望は<b>NG</b>でした。別の日時で希望してください。`; c = 'bad'; }
+    else if (m.status === 'cancelled') { t = `${rangeJa(m.date, m.start, m.end)}の面談は先生により<b>取り消されました</b>。`; c = 'bad'; }
+    else continue;
+    banners.push(`<div class="msg ${c}"><p>${t}</p><button class="sm" data-act="sSeen" data-mid="${m.mid}">確認</button></div>`);
+  }
+  const upcoming = ms.filter(m => m.status === 'confirmed' && m.endAt > now).sort((a, b) => a.startAt - b.startAt);
+  const past = ms.filter(m => m.status === 'confirmed' && m.endAt <= now).sort((a, b) => b.startAt - a.startAt);
+  const mi = m => `<div class="list-item clickable" data-act="openDetail" data-mid="${m.mid}">${stBadge(m, true)}<span class="grow"><b>第${r[m.mid]}回面談</b>　${rangeShort(m.date, m.start, m.end)}</span><span>→</span></div>`;
+
+  // カレンダー
+  const today = todayStr(), mySid = me.sid;
+  const myDates = new Set(ms.filter(m => SHOW.includes(m.status)).map(m => disp(m).date));
+  const cell = (d, inm) => {
+    const past = d < today, free = past ? 0 : freeMinutes(d);
+    const cls = ['cell', inm ? '' : 'out', d === today ? 'today' : '', d === S.selDate ? 'sel' : '', past ? 'past' : free <= 0 ? 'ngfull' : ''].join(' ');
+    return `<div class="${cls}" data-act="selDate" data-date="${d}"><span class="dn">${parseD(d).d}</span>${past ? '' : free > 0 ? '<span class="mark free">○</span>' : '<span class="mark">×</span>'}${myDates.has(d) ? '<div class="chip st-confirmed">● 予定</div>' : ''}</div>`;
+  };
+  const d = S.selDate, {start: hs, end: he} = cfg().hours;
+  const items = [];
+  for (const [mid, sl] of Object.entries(S.slots || {})) {
+    if (sl.date !== d) continue;
+    const mine = me.meetings && me.meetings[mid];
+    if (sl.sid === mySid && mine) items.push({start: +sl.start, end: +sl.end, cls: 'st-' + mine.status, label: `${hm(sl.start)}〜${hm(sl.end)} あなたの${mine.status === 'confirmed' ? '面談' : mine.status === 'proposed' ? '提案された日程' : '面談希望'}`, attrs: `data-act="openDetail" data-mid="${mid}"`});
+    else items.push({start: +sl.start, end: +sl.end, cls: 'busy', label: 'ほかの予定あり'});
+  }
+  const dayFree = d >= today && freeMinutes(d) > 0;
+  const form = d < today ? '<p class="empty">過去の日付は選べません。</p>' : !dayFree ? '<p class="empty">この日は面談を受け付けていません。</p>' :
+    `<div class="row">${startSel('rq-s', hs, he)} 〜 ${endSel('rq-e', 'rq-s', MAX_LEN, he)} <button class="pri" data-act="request">この時間で面談を希望する</button></div>
+     <p class="hint">${STEP}分刻み・最大${MAX_LEN}分まで。タイムラインをクリックすると開始時刻を選べます。</p>
+     ${S.reqErr ? `<div class="msg bad">${esc(S.reqErr)}</div>` : ''}`;
+
+  return `${banners.length ? `<div class="card"><h2>お知らせ</h2>${banners.join('')}</div>` : ''}
+    <div class="card"><h2>今後の面談</h2>${upcoming.length ? upcoming.map(mi).join('') : '<p class="empty">確定している面談はありません。</p>'}</div>
+    <div class="grid2">
+      <div class="card"><h2>面談を希望する</h2><p class="hint">日付を選んで、空いている時間帯を指定してください。○は受付あり、×は受付なしの日です。</p>${monthNav()}${monthGrid(cell, 'stu-cal')}</div>
+      <div class="card"><h2>${dateShort(d)}</h2>${form}${dayFree ? timeline(d, items, 'rq') + legend(true) : ''}</div>
+    </div>
+    <div class="card"><h2>過去の面談</h2>${past.length ? past.map(mi).join('') : '<p class="empty">まだありません。</p>'}</div>`;
+}
+
+/* =========================================================
+   面談詳細（教員・生徒共通）
+   ========================================================= */
+function detailView() {
+  const {code, mid} = S.detail, T = S.role === 'teacher';
+  const st = T ? S.students[code] : S.me;
+  const m = st && st.meetings && st.meetings[mid];
+  const back = `<button class="sm" data-act="back">← 戻る</button>`;
+  if (!m) return `<div class="card">${back}<p>この面談は見つかりません（削除された可能性があります）。</p></div>`;
+  const now = Date.now(), r = roundMap(st.meetings), n = r[mid];
+  const title = n ? `第${n}回面談` : m.status === 'pending' ? (T ? '面談希望' : '面談希望（返答待ち）') : m.status === 'proposed' ? '日程の提案中' : '面談';
+  const dm = disp(m);
+  const mm = {...m, code, mid, name: st.name};
+
+  // 操作ボタン
+  let actions = '';
+  if (T && m.status === 'pending') actions = `<div class="msg wait"><p><b>${esc(st.name)}</b>が${rangeJa(m.date, m.start, m.end)}に面談希望です</p><div class="row"><button class="ok" data-act="approve" data-code="${code}" data-mid="${mid}">OK（確定）</button><button class="bad" data-act="reject" data-code="${code}" data-mid="${mid}">NG</button><button class="prop" data-act="openPropose" data-mid="${mid}">NG・別日程を提案</button></div>${S.proposing === mid ? proposeForm(mm) : ''}</div>`;
+  if (T && m.status === 'proposed') actions = `<div class="msg prop"><p>生徒の希望：${rangeJa(m.date, m.start, m.end)}<br>あなたの提案：<b>${rangeJa(dm.date, dm.start, dm.end)}</b>（生徒の返答待ち）</p></div>`;
+  if (T && m.status === 'confirmed' && m.endAt > now) actions = `<div class="row"><button class="sm bad" data-act="tCancel" data-code="${code}" data-mid="${mid}">この面談を取り消す</button></div>`;
+  if (!T && m.status === 'pending') actions = `<div class="msg wait"><p><b>面談希望の返答待ち</b>です。先生がOKを出すと面談が確定します。</p><button class="sm bad" data-act="withdraw" data-mid="${mid}">希望を取り下げる</button></div>`;
+  if (!T && m.status === 'proposed') actions = `<div class="msg prop"><p>先生から別の日程の提案があります：<b>${rangeJa(dm.date, dm.start, dm.end)}</b></p><div class="row"><button class="ok" data-act="accept" data-mid="${mid}">この日程で確定する</button><button class="bad" data-act="decline" data-mid="${mid}">辞退する</button></div></div>`;
+
+  // ① 事前相談
+  const active = SHOW.includes(m.status);
+  const cEdit = !T && active && now < m.endAt;
+  const consult = `<h3>① 事前相談（生徒 → 教員）</h3><p class="hint">面談予定時間が終わるまで（${md(m.date)} ${hm(m.end)}まで）、生徒のみ書き込み・削除ができます。</p>
+    ${cEdit ? `<textarea id="consult-${mid}" data-keep placeholder="相談したいこと、見てほしい原稿の箇所など">${esc(m.consult || '')}</textarea>
+      <div class="row" style="margin-top:6px"><button class="pri" data-act="saveConsult" data-mid="${mid}">保存</button><button class="bad" data-act="delConsult" data-mid="${mid}">削除</button><span class="hint">${m.consultAt ? '最終保存 ' + fmtTs(m.consultAt) : ''}</span></div>`
+      : `<div class="ro">${m.consult ? esc(m.consult) : '<span class="empty">（書き込みはありません）</span>'}</div>${m.consultAt ? `<p class="hint">最終更新 ${fmtTs(m.consultAt)}</p>` : ''}`}`;
+
+  // ② 面談メモ
+  let memo = '';
+  if (m.status === 'confirmed') {
+    const openAt = m.startAt - MEMO_BEFORE * 60000;
+    const mEdit = !T && now >= openAt;
+    memo = `<h3>② 面談メモ</h3><p class="hint">面談予定時間の${MEMO_BEFORE}分前（${md(m.date)} ${hm(m.start - MEMO_BEFORE)}）から、生徒のみ随時書き込み・削除ができます。</p>
+      ${mEdit ? `<textarea id="memo-${mid}" data-keep placeholder="面談で話したこと、次回までの課題など">${esc(m.memo || '')}</textarea>
+        <div class="row" style="margin-top:6px"><button class="pri" data-act="saveMemo" data-mid="${mid}">保存</button><button class="bad" data-act="delMemo" data-mid="${mid}">削除</button><span class="hint">${m.memoAt ? '最終保存 ' + fmtTs(m.memoAt) : ''}</span></div>`
+        : `<div class="ro">${m.memo ? esc(m.memo) : `<span class="empty">${!T && now < openAt ? `${md(m.date)} ${hmJa(m.start - MEMO_BEFORE)}から書き込めます。` : '（書き込みはありません）'}</span>`}</div>${m.memoAt ? `<p class="hint">最終更新 ${fmtTs(m.memoAt)}</p>` : ''}`}`;
+  }
+
+  // 過去の面談
+  const pastList = Object.entries(st.meetings || {}).filter(([id, x]) => r[id] && id !== mid && x.startAt < m.startAt).sort((a, b) => a[1].startAt - b[1].startAt);
+  const past = `<h3>過去の面談</h3>${pastList.length ? pastList.map(([id, x]) => `<div class="past-item"><button data-act="togglePast" data-mid="${id}"><span><b>第${r[id]}回面談</b>　${md(x.date)}</span><span>${S.expanded.has(id) ? '▲' : '▼ メモを見る'}</span></button>
+      ${S.expanded.has(id) ? `<div class="past-memo">${x.memo ? esc(x.memo) : '<span class="empty">面談メモはありません。</span>'}</div>` : ''}</div>`).join('') : '<p class="empty">これより前の面談はありません。</p>'}`;
+
+  return `<div class="card">${back}
+    <div class="detail-head" style="margin-top:10px"><h2>${title}</h2>${stBadge(m, !T)}</div>
+    ${T ? `<p style="margin:4px 0">生徒：<b>${esc(st.name)}</b></p>` : ''}
+    <p class="when">${rangeJa(dm.date, dm.start, dm.end)}</p>
+    ${actions}${consult}${memo}${past}</div>`;
+}
+</script>
+<script>
+/* =========================================================
+   操作
+   ========================================================= */
+const B = DEMO ? LocalBackend() : (typeof firebase !== 'undefined' ? FireBackend() : null);
+const now = () => Date.now();
+function permMsg(e) { return /permission/i.test(String(e && (e.code || e.message))) ? '権限がありません（受付期間外の操作か、データベースのルール設定を確認してください）' : (e && e.message) || String(e); }
+async function run(fn) { try { await fn(); } catch (e) { console.error(e); toast('エラー：' + permMsg(e)); } }
+const mpath = (code, mid, f) => `students/${code}/meetings/${mid}${f ? '/' + f : ''}`;
+
+function unsubAll() { subs.forEach(u => u()); subs = []; }
+function startTeacher() {
+  S.role = 'teacher'; S.view = 'cal'; S.err = '';
+  subs.push(B.on('students', v => { S.students = v || {}; requestRender(); }));
+  subs.push(B.on('slots', v => { S.slots = v || {}; requestRender(); }));
+  subs.push(B.on('ng', v => { S.ng = v || {}; requestRender(); }));
+  subs.push(B.on('config', v => { S.config = v || {}; requestRender(); }));
+  S.loading = false; render();
+}
+function startStudent(code) {
+  S.role = 'student'; S.code = code; S.view = 'home'; S.err = '';
+  subs.push(B.on('students/' + code, v => { if (!v) { forceLogout('コードが無効になりました。先生に確認してください。'); return; } S.me = v; requestRender(); }));
+  subs.push(B.on('slots', v => { S.slots = v || {}; requestRender(); }));
+  subs.push(B.on('ng', v => { S.ng = v || {}; requestRender(); }));
+  subs.push(B.on('config', v => { S.config = v || {}; requestRender(); }));
+  S.loading = false; render();
+}
+async function enterStudent(code) {
+  let st = null;
+  if (/^[A-Z0-9]{8}$/.test(code)) { try { st = await B.get('students/' + code); } catch (e) { st = null; } }
+  if (!st || !st.sid) { delLS('code'); S.err = 'コードが見つかりません。先生から受け取ったコードを確認してください。'; S.loading = false; render(); return; }
+  try { await B.update({['owners/' + S.user.uid]: {code, sid: st.sid}}); } catch (e) { console.error(e); }
+  startStudent(code);
+}
+async function forceLogout(msg) { unsubAll(); delLS('code'); S.role = null; S.me = null; S.err = msg || ''; try { await B.signOut(); } catch (e) {} render(); }
+
+if (!B) {
+  document.getElementById('app').innerHTML = '<div class="loading">Firebaseを読み込めませんでした。インターネット接続を確認して再読み込みしてください。</div>';
+} else {
+  B.onAuth(async u => {
+    unsubAll(); S.user = u; S.role = null; S.me = null; S.detail = null;
+    if (!u) { S.loading = false; render(); return; }
+    if (!u.isAnonymous) {
+      try { await B.get('students'); }
+      catch (e) { S.err = `このGoogleアカウント（${u.email}）は教員として登録されていません。`; S.loading = false; await B.signOut(); return; }
+      startTeacher();
+    } else {
+      const code = getLS('code');
+      if (!code) { S.loading = false; render(); return; }
+      await enterStudent(code);
+    }
+  });
+}
+
+/* ----- イベント ----- */
+document.addEventListener('input', e => { const t = e.target; if (t.id && t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value; });
+document.addEventListener('change', e => {
+  const t = e.target; if (!t.id) return;
+  if (t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value;
+  document.querySelectorAll(`select[data-start="${t.id}"]`).forEach(s => { delete kept[s.id]; fillEnd(s); kept[s.id] = s.value; });
+  if (t.dataset.rerender !== undefined) render();
+  if (t.id === 'rq-s' || t.id === 'rq-e') { if (S.reqErr) { S.reqErr = ''; render(); } }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'login-code' && !e.isComposing) ACT.studentLogin(); });
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const f = ACT[t.dataset.act]; if (f) f(t.dataset, t, e);
+});
+
+const ACT = {
+  /* ログイン */
+  async studentLogin() {
+    const code = String(kept['login-code'] || val('login-code') || '').trim().toUpperCase();
+    if (!code) { S.err = 'コードを入力してください。'; render(); return; }
+    S.err = ''; setLS('code', code);
+    if (S.user && S.user.isAnonymous) { await enterStudent(code); return; }
+    S.loading = true; render();
+    try { await B.signInStudent(); } catch (e) { S.loading = false; S.err = 'ログインできませんでした：' + permMsg(e); render(); }
+  },
+  async teacherLogin() { S.err = ''; try { await B.signInTeacher(); } catch (e) { if (e && e.code !== 'auth/popup-closed-by-user') { S.err = 'ログインできませんでした：' + permMsg(e); render(); } } },
+  async logout() { if (!confirm('ログアウトしますか？')) return; if (S.role === 'student') delLS('code'); unsubAll(); S.role = null; await B.signOut(); },
+
+  /* 画面切り替え */
+  tab(d) { S.view = d.v; S.detail = null; S.proposing = null; render(); window.scrollTo(0, 0); },
+  calMove(d) { S.calMonth = addMonths(S.calMonth, +d.n); render(); },
+  calToday() { S.calMonth = todayStr().slice(0, 7); S.selDate = todayStr(); render(); },
+  selDate(d) { S.selDate = d.date; if (d.date.slice(0, 7) !== S.calMonth) S.calMonth = d.date.slice(0, 7); S.reqErr = ''; S.tcErr = ''; render(); },
+  tlClick(d, el, e) {
+    if (e.target.closest('.tl-item')) return;
+    const rect = el.getBoundingClientRect();
+    let m = +d.t0 + Math.floor((e.clientY - rect.top) / +d.px / STEP) * STEP;
+    const sel = document.getElementById(d.target + '-s'); if (!sel) return;
+    if (![...sel.options].some(o => +o.value === m)) return;
+    sel.value = m; kept[sel.id] = String(m);
+    const es = document.getElementById(d.target + '-e'); if (es) { delete kept[es.id]; fillEnd(es); kept[es.id] = es.value; }
+  },
+  openDetail(d) {
+    const code = d.code || S.code;
+    S.back = S.view === 'detail' ? S.back : S.view; S.view = 'detail'; S.detail = {code, mid: d.mid}; S.proposing = null; S.expanded = new Set();
+    if (S.role === 'student') { const m = S.me.meetings && S.me.meetings[d.mid]; if (m && m.studentSeen === false && m.status !== 'proposed') run(() => B.update({[mpath(code, d.mid, 'studentSeen')]: true})); }
+    render(); window.scrollTo(0, 0);
+  },
+  back() { S.view = S.back || (S.role === 'teacher' ? 'cal' : 'home'); S.detail = null; S.proposing = null; render(); },
+  togglePast(d) { S.expanded.has(d.mid) ? S.expanded.delete(d.mid) : S.expanded.add(d.mid); render(); },
+
+  /* 教員：希望への返答 */
+  approve(d) {
+    const st = S.students[d.code], m = st.meetings[d.mid];
+    run(async () => {
+      await B.update({[mpath(d.code, d.mid, 'status')]: 'confirmed', [mpath(d.code, d.mid, 'studentSeen')]: false, [mpath(d.code, d.mid, 'teacherSeen')]: true, [mpath(d.code, d.mid, 'updatedAt')]: now()});
+      mailStudent(d.code, '面談が確定しました', `面談が確定しました。\n日時：${rangeJa(m.date, m.start, m.end)}`);
+      toast(`${st.name}さんの面談を確定しました`);
+    });
+  },
+  reject(d) {
+    const st = S.students[d.code], m = st.meetings[d.mid];
+    if (!confirm(`${st.name}さんの希望（${rangeJa(m.date, m.start, m.end)}）をNGにしますか？\n（別日程を提案する場合は「NG・別日程を提案」を使ってください）`)) return;
+    run(async () => {
+      await B.update({[mpath(d.code, d.mid, 'status')]: 'rejected', [mpath(d.code, d.mid, 'studentSeen')]: false, [mpath(d.code, d.mid, 'teacherSeen')]: true, [mpath(d.code, d.mid, 'updatedAt')]: now(), ['slots/' + d.mid]: null});
+      mailStudent(d.code, '面談希望はNGでした', `${rangeJa(m.date, m.start, m.end)}の面談希望はNGでした。\nアプリから別の日時で希望してください。`);
+      toast('NGにしました');
+    });
+  },
+  openPropose(d) { S.proposing = d.mid; render(); },
+  closePropose() { S.proposing = null; render(); },
+  propose(d) {
+    const st = S.students[d.code], m = st.meetings[d.mid];
+    const date = val('pr-d-' + d.mid), s = +val('pr-s-' + d.mid), e = +val('pr-e-' + d.mid);
+    const errEl = document.getElementById('pr-err-' + d.mid);
+    if (!date || !(e > s)) { errEl.textContent = '日時を指定してください。'; return; }
+    if (toAt(date, s) <= now()) { errEl.textContent = '過去の日時は提案できません。'; return; }
+    const c = findConflict(date, s, e, d.mid);
+    if (c) { errEl.textContent = `この日の${hmJa(c.start)}〜${hmJa(c.end)}は、すでに面談の希望または予定が入っています。`; return; }
+    if (isNG(date, s, e) && !confirm('NG設定の時間帯を含みますが、この日程で提案しますか？')) return;
+    const p = {date, start: s, end: e, startAt: toAt(date, s), endAt: toAt(date, e)};
+    run(async () => {
+      await B.update({[mpath(d.code, d.mid, 'status')]: 'proposed', [mpath(d.code, d.mid, 'proposal')]: p, [mpath(d.code, d.mid, 'studentSeen')]: false, [mpath(d.code, d.mid, 'teacherSeen')]: true, [mpath(d.code, d.mid, 'updatedAt')]: now(),
+        ['slots/' + d.mid]: {date, start: s, end: e, sid: st.sid}});
+      mailStudent(d.code, '別の日程の提案があります', `${rangeJa(m.date, m.start, m.end)}の面談希望はNGでした。\n先生から別の日程の提案があります：${rangeJa(date, s, e)}\nアプリで「確定する」か「辞退する」を選んでください。`);
+      S.proposing = null; clearKept('pr-d-' + d.mid, 'pr-s-' + d.mid, 'pr-e-' + d.mid); toast('別日程を提案しました'); render();
+    });
+  },
+  tSeen(d) { run(() => B.update({[mpath(d.code, d.mid, 'teacherSeen')]: true})); },
+  tCancel(d) {
+    const st = S.students[d.code], m = st.meetings[d.mid];
+    if (!confirm(`${st.name}さんの面談（${rangeJa(m.date, m.start, m.end)}）を取り消しますか？`)) return;
+    run(async () => {
+      await B.update({[mpath(d.code, d.mid, 'status')]: 'cancelled', [mpath(d.code, d.mid, 'studentSeen')]: false, [mpath(d.code, d.mid, 'updatedAt')]: now(), ['slots/' + d.mid]: null});
+      mailStudent(d.code, '面談が取り消されました', `${rangeJa(m.date, m.start, m.end)}の面談は先生により取り消されました。`);
+      toast('面談を取り消しました');
+    });
+  },
+  teacherCreate() {
+    const code = val('tc-stu'), date = S.selDate, s = +val('tc-s'), e = +val('tc-e');
+    const st = S.students[code];
+    S.tcErr = '';
+    if (!st || !(e > s)) { S.tcErr = '生徒と時間を選んでください。'; render(); return; }
+    const c = findConflict(date, s, e);
+    if (c) { S.tcErr = `この日の${hmJa(c.start)}〜${hmJa(c.end)}は、すでに面談の希望または予定が入っています。`; render(); return; }
+    if (isNG(date, s, e) && !confirm('NG設定の時間帯を含みますが、面談を設定しますか？')) return;
+    if (toAt(date, s) < now() && !confirm('過去の日時ですが、面談を設定しますか？（記録用）')) return;
+    const mid = newId();
+    const m = {date, start: s, end: e, startAt: toAt(date, s), endAt: toAt(date, e), status: 'confirmed', createdBy: 'teacher', studentSeen: false, teacherSeen: true, createdAt: now(), updatedAt: now(), consult: '', memo: ''};
+    run(async () => {
+      await B.update({[mpath(code, mid)]: m, ['slots/' + mid]: {date, start: s, end: e, sid: st.sid}});
+      mailStudent(code, '面談が設定されました', `先生が面談を設定しました。\n日時：${rangeJa(date, s, e)}`);
+      toast(`${st.name}さんとの面談を設定しました`);
+    });
+  },
+
+  /* 教員：NG設定 */
+  ngAdd() {
+    const scope = val('ng-scope') || 'month', type = val('ng-type') || 'weekday';
+    const r = {scope, type, createdAt: now()};
+    S.ngErr = '';
+    if (scope === 'month') r.period = val('ng-month');
+    if (scope === 'week') { const w = val('ng-week'); if (!w) { S.ngErr = '週を選んでください。'; render(); return; } r.period = weekStart(w); }
+    if (type === 'weekday' || type === 'weekdayTime') { r.weekdays = [0, 1, 2, 3, 4, 5, 6].filter(i => val('ng-wd-' + i)); if (!r.weekdays.length) { S.ngErr = '曜日を選んでください。'; render(); return; } }
+    const needTime = type === 'time' || type === 'weekdayTime' || (type === 'date' && !val('ng-allday'));
+    if (needTime) { r.start = +val('ng-s'); r.end = +val('ng-e'); if (!(r.end > r.start)) { S.ngErr = '時間帯を指定してください。'; render(); return; } }
+    if (type === 'date') { r.date = val('ng-date'); r.allDay = !!val('ng-allday'); r.scope = 'always'; delete r.period; if (!r.date) { S.ngErr = '日付を選んでください。'; render(); return; } }
+    run(async () => { await B.update({['ng/' + newId()]: r}); for (let i = 0; i < 7; i++) clearKept('ng-wd-' + i); toast('NGを追加しました'); render(); });
+  },
+  ngDel(d) { run(() => B.update({['ng/' + d.id]: null})); },
+  ngDelGroup(d) {
+    if (!confirm('この期間のNG設定をすべて削除しますか？')) return;
+    const map = {}; for (const [id, r] of Object.entries(S.ng || {})) { const k = r.scope === 'always' ? 'always' : `${r.scope}:${r.period}`; if (k === d.k) map['ng/' + id] = null; }
+    run(() => B.update(map));
+  },
+  ngCopy(d) {
+    const [scope, period] = d.k.split(':'); const next = scope === 'month' ? addMonths(period, 1) : addDays(period, 7);
+    const map = {}; let n = 0;
+    for (const r of Object.values(S.ng || {})) if (r.scope === scope && r.period === period) { map['ng/' + newId() + n++] = {...r, period: next, createdAt: now()}; }
+    run(async () => { await B.update(map); toast(`${scope === 'month' ? ymJa(next) : dateShort(next) + 'からの週'}にコピーしました`); });
+  },
+
+  /* 教員：生徒 */
+  stuAdd() {
+    const name = String(val('stu-name')).trim(), email = String(val('stu-email')).trim();
+    S.stuErr = '';
+    if (!name) { S.stuErr = '名前を入力してください。'; render(); return; }
+    let code; do { code = genCode(); } while (S.students[code]);
+    run(async () => {
+      await B.update({['students/' + code]: {name, email, sid: newId(), createdAt: now()}});
+      clearKept('stu-name', 'stu-email'); setKept('stu-name', ''); setKept('stu-email', ''); delete kept['stu-name']; delete kept['stu-email'];
+      toast(`${name}さんを登録しました（コード：${code}）`);
+    });
+  },
+  stuEdit(d) { S.editing = d.code; clearKept('ed-name', 'ed-email'); render(); },
+  stuEditCancel() { S.editing = null; render(); },
+  stuSave(d) {
+    const name = String(val('ed-name')).trim(), email = String(val('ed-email')).trim();
+    if (!name) { toast('名前を入力してください'); return; }
+    run(async () => { await B.update({[`students/${d.code}/name`]: name, [`students/${d.code}/email`]: email}); S.editing = null; clearKept('ed-name', 'ed-email'); render(); });
+  },
+  stuDel(d) {
+    const st = S.students[d.code];
+    if (!confirm(`${st.name}さんを削除しますか？\n面談の記録・メモもすべて削除され、コードも使えなくなります。`)) return;
+    const map = {['students/' + d.code]: null};
+    for (const mid of Object.keys(st.meetings || {})) map['slots/' + mid] = null;
+    run(() => B.update(map));
+  },
+  stuMeetings(d) { S.stuOpen = S.stuOpen === d.code ? null : d.code; render(); },
+  async copyInvite(d) {
+    const st = S.students[d.code], url = location.origin + location.pathname + '?code=' + d.code;
+    const text = `${st.name}さん\n卒論の面談予約アプリです。下のURLを開いてください。\n${url}\nコード：${d.code}\n（このコードは他の人に教えないでください）`;
+    try { await navigator.clipboard.writeText(text); toast('案内文をコピーしました'); } catch (e) { prompt('コピーしてください', text); }
+  },
+
+  /* 教員：設定 */
+  saveHours() {
+    const s = +val('set-hs'), e = +val('set-he');
+    if (!(e > s)) { toast('終了は開始より後にしてください'); return; }
+    run(async () => { await B.update({'config/hours': {start: s, end: e}}); toast('受付時間を保存しました'); });
+  },
+  saveMail() { run(async () => { await B.update({'config/gasUrl': String(val('set-gas')).trim(), 'config/gasToken': String(val('set-token')).trim()}); toast('保存しました'); }); },
+  testMail() { if (!cfg().gasUrl) { toast('先にURLを保存してください'); return; } mailTeacher('テストメール', 'これはテストメールです。このメールが届いていれば設定は完了です。'); toast('送信しました。数十秒以内に届くか確認してください'); },
+
+  /* 生徒 */
+  request() {
+    const d = S.selDate, s = +val('rq-s'), e = +val('rq-e'), me = S.me;
+    S.reqErr = '';
+    if (!(e > s)) S.reqErr = '時間帯を指定してください。';
+    else if (e - s > MAX_LEN) S.reqErr = `面談は最大${MAX_LEN}分までです。`;
+    else if (toAt(d, s) <= now()) S.reqErr = '過去の日時は選べません。';
+    else if (isNG(d, s, e)) S.reqErr = 'この時間帯は面談を受け付けていません（NGの時間を含んでいます）。';
+    else { const c = findConflict(d, s, e); if (c) S.reqErr = `この日の${hmJa(c.start)}〜${hmJa(c.end)}は、すでに面談の希望または予定が入っています。`; }
+    if (S.reqErr) { render(); return; }
+    if (!confirm(`${rangeJa(d, s, e)}で面談を希望します。よろしいですか？`)) return;
+    const mid = newId();
+    const m = {date: d, start: s, end: e, startAt: toAt(d, s), endAt: toAt(d, e), status: 'pending', createdBy: 'student', studentSeen: true, teacherSeen: false, createdAt: now(), updatedAt: now(), consult: '', memo: ''};
+    run(async () => {
+      await B.update({[mpath(S.code, mid)]: m, ['slots/' + mid]: {date: d, start: s, end: e, sid: me.sid}});
+      mailTeacher(`${me.name}さんから面談希望`, `${me.name}が${rangeJa(d, s, e)}に面談希望です。\nアプリでOK／NGを選んでください。`);
+      toast('面談希望を送信しました。先生の返答をお待ちください');
+    });
+  },
+  withdraw(d) {
+    const m = S.me.meetings[d.mid];
+    if (!confirm(`${rangeJa(m.date, m.start, m.end)}の面談希望を取り下げますか？`)) return;
+    run(async () => {
+      await B.update({[mpath(S.code, d.mid, 'status')]: 'withdrawn', [mpath(S.code, d.mid, 'teacherSeen')]: false, [mpath(S.code, d.mid, 'updatedAt')]: now(), ['slots/' + d.mid]: null});
+      mailTeacher(`${S.me.name}さんが面談希望を取り下げ`, `${S.me.name}が${rangeJa(m.date, m.start, m.end)}の面談希望を取り下げました。`);
+      toast('取り下げました'); if (S.view === 'detail') ACT.back();
+    });
+  },
+  accept(d) {
+    const m = S.me.meetings[d.mid], p = m.proposal;
+    if (!confirm(`${rangeJa(p.date, p.start, p.end)}で面談を確定しますか？`)) return;
+    run(async () => {
+      await B.update({[mpath(S.code, d.mid, 'status')]: 'confirmed', [mpath(S.code, d.mid, 'date')]: p.date, [mpath(S.code, d.mid, 'start')]: p.start, [mpath(S.code, d.mid, 'end')]: p.end,
+        [mpath(S.code, d.mid, 'startAt')]: p.startAt, [mpath(S.code, d.mid, 'endAt')]: p.endAt, [mpath(S.code, d.mid, 'proposal')]: null,
+        [mpath(S.code, d.mid, 'teacherSeen')]: false, [mpath(S.code, d.mid, 'studentSeen')]: true, [mpath(S.code, d.mid, 'updatedAt')]: now()});
+      mailTeacher(`${S.me.name}さんが提案日程を承諾`, `${S.me.name}が提案した日程（${rangeJa(p.date, p.start, p.end)}）を承諾しました。面談が確定しました。`);
+      toast('面談が確定しました');
+    });
+  },
+  decline(d) {
+    const m = S.me.meetings[d.mid], p = m.proposal;
+    if (!confirm('先生の提案を辞退しますか？（あらためて別の日時で希望できます）')) return;
+    run(async () => {
+      await B.update({[mpath(S.code, d.mid, 'status')]: 'declined', [mpath(S.code, d.mid, 'teacherSeen')]: false, [mpath(S.code, d.mid, 'studentSeen')]: true, [mpath(S.code, d.mid, 'updatedAt')]: now(), ['slots/' + d.mid]: null});
+      mailTeacher(`${S.me.name}さんが提案日程を辞退`, `${S.me.name}が提案した日程（${rangeJa(p.date, p.start, p.end)}）を辞退しました。`);
+      toast('辞退しました'); if (S.view === 'detail') ACT.back();
+    });
+  },
+  sSeen(d) { run(() => B.update({[mpath(S.code, d.mid, 'studentSeen')]: true})); },
+  saveConsult(d) { const v = val('consult-' + d.mid); run(async () => { await B.update({[mpath(S.code, d.mid, 'consult')]: v, [mpath(S.code, d.mid, 'consultAt')]: now()}); clearKept('consult-' + d.mid); toast('事前相談を保存しました'); render(); }); },
+  delConsult(d) { if (!confirm('事前相談の内容を削除しますか？')) return; run(async () => { await B.update({[mpath(S.code, d.mid, 'consult')]: '', [mpath(S.code, d.mid, 'consultAt')]: now()}); clearKept('consult-' + d.mid); render(); }); },
+  saveMemo(d) { const v = val('memo-' + d.mid); run(async () => { await B.update({[mpath(S.code, d.mid, 'memo')]: v, [mpath(S.code, d.mid, 'memoAt')]: now()}); clearKept('memo-' + d.mid); toast('面談メモを保存しました'); render(); }); },
+  delMemo(d) { if (!confirm('面談メモを削除しますか？')) return; run(async () => { await B.update({[mpath(S.code, d.mid, 'memo')]: '', [mpath(S.code, d.mid, 'memoAt')]: now()}); clearKept('memo-' + d.mid); render(); }); }
+};
+</script>
+</body>
+</html>
