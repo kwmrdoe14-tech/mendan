@@ -125,6 +125,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:14px}
 .group-h{display:flex;align-items:center;gap:8px;margin:14px 0 4px;font-weight:700}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100;max-width:90vw}
 #toast.show{opacity:.95}
+.welcome{background:var(--pri-soft);border-color:#c9d6f6}
+.who-big{font-size:20px;margin-bottom:2px}
 .loading{text-align:center;color:var(--sub);margin-top:80px}
 </style>
 </head>
@@ -175,7 +177,12 @@ const rangeJa = (d, s, e) => `${dateJa(d)}の${hmJa(s)}〜${hmJa(e)}`;
 const rangeShort = (d, s, e) => `${dateShort(d)} ${hm(s)}〜${hm(e)}`;
 const overlap = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const genCode = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (const x of crypto.getRandomValues(new Uint32Array(8))) s += c[x % c.length]; return s; };
+// 個人コード：ランダムな数字6桁。データベース上は先頭に c を付けたキー（例 c482913）で保存
+const genCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+const keyOf = code => 'c' + code;
+const codeOf = key => /^c\d{6}$/.test(key) ? key.slice(1) : key;
+const isLegacyKey = key => !/^c\d{6}$/.test(key);
+const normCode = v => String(v || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\D/g, '');
 const fmtTs = t => { if (!t) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${pad(d.getUTCMinutes())}`; };
 const getLS = k => { try { return localStorage.getItem('mendan-' + k); } catch (e) { return null; } };
 const setLS = (k, v) => { try { localStorage.setItem('mendan-' + k, v); } catch (e) {} };
@@ -392,10 +399,10 @@ function view() {
 }
 function loginView() {
   const q = new URLSearchParams(location.search).get('code') || '';
-  if (q && kept['login-code'] == null) kept['login-code'] = q.toUpperCase();
+  if (q && kept['login-code'] == null) kept['login-code'] = normCode(q).slice(0, 6);
   return `<div class="login">
-    <div class="card"><h2>学生の方</h2><p class="hint">先生から受け取った8文字のコードを入力してください。</p>
-      <input id="login-code" data-keep class="big-input" maxlength="8" autocomplete="off" placeholder="XXXXXXXX">
+    <div class="card"><h2>学生の方</h2><p class="hint">先生から受け取った<b>6桁の数字</b>（個人コード）を入力してください。</p>
+      <input id="login-code" data-keep class="big-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="000000">
       <div style="margin-top:12px"><button class="pri" style="width:100%" data-act="studentLogin">入る</button></div></div>
     <div class="card"><h2>教員の方</h2><p class="hint">登録済みのGoogleアカウントでログインします。</p>
       <button class="pri" style="width:100%" data-act="teacherLogin">Googleでログイン</button></div>
@@ -559,20 +566,20 @@ function studentsView() {
     if (S.editing === code) {
       if (kept['ed-name'] == null) kept['ed-name'] = s.name;
       if (kept['ed-email'] == null) kept['ed-email'] = s.email || '';
-      return `<tr><td><input id="ed-name" data-keep style="width:100%"></td><td><span class="code">${code}</span></td><td><input id="ed-email" data-keep type="email" style="width:100%"></td><td>${cnt}回</td>
+      return `<tr><td><input id="ed-name" data-keep style="width:100%"></td><td><span class="code">${codeOf(code)}</span>${isLegacyKey(code) ? `<br><button class="sm" data-act="stuReissue" data-code="${code}">6桁コードに再発行</button>` : ''}</td><td><input id="ed-email" data-keep type="email" style="width:100%"></td><td>${cnt}回</td>
         <td><div class="row"><button class="sm pri" data-act="stuSave" data-code="${code}">保存</button><button class="sm" data-act="stuEditCancel">やめる</button></div></td></tr>`;
     }
     const ms = Object.entries(s.meetings || {}).filter(([, m]) => SHOW.includes(m.status)).sort((a, b) => b[1].startAt - a[1].startAt);
-    return `<tr><td><b>${esc(s.name)}</b></td><td><span class="code">${code}</span></td><td>${esc(s.email || '—')}</td><td>${cnt}回</td>
-      <td><div class="row"><button class="sm" data-act="stuMeetings" data-code="${code}">面談一覧</button><button class="sm" data-act="copyInvite" data-code="${code}">案内文をコピー</button><button class="sm" data-act="stuEdit" data-code="${code}">編集</button><button class="sm bad" data-act="stuDel" data-code="${code}">削除</button></div></td></tr>
+    return `<tr><td><b>${esc(s.name)}</b></td><td><span class="code">${codeOf(code)}</span>${isLegacyKey(code) ? `<br><button class="sm" data-act="stuReissue" data-code="${code}">6桁コードに再発行</button>` : ''}</td><td>${esc(s.email || '—')}</td><td>${cnt}回</td>
+      <td><div class="row"><button class="sm" data-act="stuMeetings" data-code="${code}">面談一覧</button><button class="sm" data-act="copyInvite" data-code="${code}">案内文をコピー</button><button class="sm" data-act="stuEdit" data-code="${code}">編集</button>${!isLegacyKey(code) ? `<button class="sm" data-act="stuReissue" data-code="${code}">コード再発行</button>` : ''}<button class="sm bad" data-act="stuDel" data-code="${code}">削除</button></div></td></tr>
       ${S.stuOpen === code ? `<tr><td colspan="5">${ms.length ? ms.map(([mid, m]) => `<div class="list-item clickable" data-act="openDetail" data-code="${code}" data-mid="${mid}">${stBadge(m)}<span class="grow">${r[mid] ? `第${r[mid]}回面談　` : ''}${rangeShort(disp(m).date, disp(m).start, disp(m).end)}</span><span>→</span></div>`).join('') : '<p class="empty">面談はまだありません。</p>'}</td></tr>` : ''}`;
   }).join('');
   return `<div class="card"><h2>生徒を登録する</h2>
-      <p class="hint">名前を登録するとコードが発行されます。コードを生徒に伝えると、生徒はそのコードで自分の画面に入れます。メールアドレスは通知メール用（任意）です。</p>
+      <p class="hint">名前を登録すると、ランダムな6桁の数字の「個人コード」が発行されます。生徒はそのコードを入力すると、自分の名前が表示されて自分の画面に入れます。メールアドレスは通知メール用（任意）です。</p>
       <div class="row"><input id="stu-name" data-keep placeholder="名前（例：早稲田 花子）"> <input id="stu-email" data-keep type="email" placeholder="メールアドレス（任意）" style="min-width:240px"> <button class="pri" data-act="stuAdd">登録してコードを発行</button></div>
       <div class="err">${esc(S.stuErr || '')}</div></div>
     <div class="card"><h2>登録済みの生徒（${studs.length}人）</h2>
-      ${studs.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>名前</th><th>コード</th><th>メール</th><th>確定面談</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">まだ登録されていません。</p>'}</div>`;
+      ${studs.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>名前</th><th>個人コード</th><th>メール</th><th>確定面談</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">まだ登録されていません。</p>'}</div>`;
 }
 
 /* ----- 設定 ----- */
@@ -641,7 +648,8 @@ function studentMain() {
      <p class="hint">${STEP}分刻み・最大${MAX_LEN}分まで。タイムラインをクリックすると開始時刻を選べます。</p>
      ${S.reqErr ? `<div class="msg bad">${esc(S.reqErr)}</div>` : ''}`;
 
-  return `${banners.length ? `<div class="card"><h2>お知らせ</h2>${banners.join('')}</div>` : ''}
+  return `<div class="card welcome"><div class="who-big"><b>${esc(me.name || '')}</b> さん</div><p class="hint" style="margin:0">ログインしています。名前が違う場合は、右上の「ログアウト」から個人コードを入れ直してください。</p></div>
+    ${banners.length ? `<div class="card"><h2>お知らせ</h2>${banners.join('')}</div>` : ''}
     <div class="card"><h2>今後の面談</h2>${upcoming.length ? upcoming.map(mi).join('') : '<p class="empty">確定している面談はありません。</p>'}</div>
     <div class="grid2">
       <div class="card"><h2>面談を希望する</h2><p class="hint">日付を選んで、空いている時間帯を指定してください。○は受付あり、×は受付なしの日です。</p>${monthNav()}${monthGrid(cell, 'stu-cal')}</div>
@@ -732,10 +740,11 @@ function startStudent(code) {
 }
 async function enterStudent(code) {
   let st = null;
-  if (/^[A-Z0-9]{8}$/.test(code)) { try { st = await B.get('students/' + code); } catch (e) { st = null; } }
-  if (!st || !st.sid) { delLS('code'); S.err = 'コードが見つかりません。先生から受け取ったコードを確認してください。'; S.loading = false; render(); return; }
+  if (/^c\d{6}$/.test(code)) { try { st = await B.get('students/' + code); } catch (e) { st = null; } }
+  if (!st || !st.sid) { delLS('code'); S.err = '個人コードが見つかりません。先生から受け取った6桁の数字を確認してください。'; S.loading = false; render(); return; }
   try { await B.update({['owners/' + S.user.uid]: {code, sid: st.sid}}); } catch (e) { console.error(e); }
   startStudent(code);
+  toast(`${st.name} さんとしてログインしました`);
 }
 async function forceLogout(msg) { unsubAll(); delLS('code'); S.role = null; S.me = null; S.err = msg || ''; try { await B.signOut(); } catch (e) {} render(); }
 
@@ -758,7 +767,7 @@ if (!B) {
 }
 
 /* ----- イベント ----- */
-document.addEventListener('input', e => { const t = e.target; if (t.id && t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value; });
+document.addEventListener('input', e => { const t = e.target; if (t.id === 'login-code') { const v = normCode(t.value).slice(0, 6); if (v !== t.value) t.value = v; } if (t.id && t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value; });
 document.addEventListener('change', e => {
   const t = e.target; if (!t.id) return;
   if (t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value;
@@ -775,8 +784,9 @@ document.addEventListener('click', e => {
 const ACT = {
   /* ログイン */
   async studentLogin() {
-    const code = String(kept['login-code'] || val('login-code') || '').trim().toUpperCase();
-    if (!code) { S.err = 'コードを入力してください。'; render(); return; }
+    const digits = normCode(kept['login-code'] || val('login-code'));
+    if (digits.length !== 6) { S.err = '個人コード（6桁の数字）を入力してください。'; render(); return; }
+    const code = keyOf(digits);
     S.err = ''; setLS('code', code);
     if (S.user && S.user.isAnonymous) { await enterStudent(code); return; }
     S.loading = true; render();
@@ -904,11 +914,11 @@ const ACT = {
     const name = String(val('stu-name')).trim(), email = String(val('stu-email')).trim();
     S.stuErr = '';
     if (!name) { S.stuErr = '名前を入力してください。'; render(); return; }
-    let code; do { code = genCode(); } while (S.students[code]);
+    let code; do { code = keyOf(genCode()); } while (S.students[code]);
     run(async () => {
       await B.update({['students/' + code]: {name, email, sid: newId(), createdAt: now()}});
       clearKept('stu-name', 'stu-email'); setKept('stu-name', ''); setKept('stu-email', ''); delete kept['stu-name']; delete kept['stu-email'];
-      toast(`${name}さんを登録しました（コード：${code}）`);
+      toast(`${name}さんを登録しました（個人コード：${codeOf(code)}）`);
     });
   },
   stuEdit(d) { S.editing = d.code; clearKept('ed-name', 'ed-email'); render(); },
@@ -925,10 +935,16 @@ const ACT = {
     for (const mid of Object.keys(st.meetings || {})) map['slots/' + mid] = null;
     run(() => B.update(map));
   },
+  stuReissue(d) {
+    const st = S.students[d.code];
+    if (!confirm(`${st.name}さんの個人コードを新しい6桁の数字に変えますか？\n今のコード（${codeOf(d.code)}）は使えなくなります。面談の記録はそのまま引き継がれます。`)) return;
+    let code; do { code = keyOf(genCode()); } while (S.students[code]);
+    run(async () => { await B.update({['students/' + code]: st, ['students/' + d.code]: null}); if (S.stuOpen === d.code) S.stuOpen = code; toast(`新しい個人コード：${codeOf(code)}`); });
+  },
   stuMeetings(d) { S.stuOpen = S.stuOpen === d.code ? null : d.code; render(); },
   async copyInvite(d) {
-    const st = S.students[d.code], url = location.origin + location.pathname + '?code=' + d.code;
-    const text = `${st.name}さん\n卒論の面談予約アプリです。下のURLを開いてください。\n${url}\nコード：${d.code}\n（このコードは他の人に教えないでください）`;
+    const st = S.students[d.code], url = location.origin + location.pathname + '?code=' + codeOf(d.code);
+    const text = `${st.name}さん\n卒論の面談予約アプリです。下のURLを開いてください。\n${url}\n個人コード：${codeOf(d.code)}\n（このコードは他の人に教えないでください）`;
     try { await navigator.clipboard.writeText(text); toast('案内文をコピーしました'); } catch (e) { prompt('コピーしてください', text); }
   },
 
