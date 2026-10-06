@@ -151,7 +151,7 @@ const APP_NAME = '卒論面談';
 const MAX_LEN = 60;   // 1回の面談の最大（分）
 const STEP = 5;       // 時間の刻み（分）
 const MEMO_BEFORE = 10; // 面談メモが書けるようになる時刻（開始の何分前か）
-const DEFAULT_GAS_TOKEN = 'jK2huxB4i8MMNFJX8Wn9'; // gas_mail.gs の TOKEN と同じ
+// メール通知機能は削除しました（2026-10）
 
 const DEMO = String(FIREBASE_CONFIG.apiKey).startsWith('YOUR') || new URLSearchParams(location.search).has('demo');
 
@@ -177,12 +177,13 @@ const rangeJa = (d, s, e) => `${dateJa(d)}の${hmJa(s)}〜${hmJa(e)}`;
 const rangeShort = (d, s, e) => `${dateShort(d)} ${hm(s)}〜${hm(e)}`;
 const overlap = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-// 個人コード：ランダムな数字6桁。データベース上は先頭に c を付けたキー（例 c482913）で保存
-const genCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
-const keyOf = code => 'c' + code;
+// 個人コード：紛らわしい文字（0/O, 1/I/L）を除いた英数字8文字。データベース上もそのままのキーで保存（旧形式は c+数字6桁）
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const genCode = () => Array.from(crypto.getRandomValues(new Uint32Array(8)), n => CODE_CHARS[n % CODE_CHARS.length]).join('');
+const keyOf = code => code;
 const codeOf = key => /^c\d{6}$/.test(key) ? key.slice(1) : key;
-const isLegacyKey = key => !/^c\d{6}$/.test(key);
-const normCode = v => String(v || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\D/g, '');
+const isLegacyKey = key => /^c\d{6}$/.test(key);
+const normCode = v => String(v || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const fmtTs = t => { if (!t) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${pad(d.getUTCMinutes())}`; };
 const getLS = k => { try { return localStorage.getItem('mendan-' + k); } catch (e) { return null; } };
 const setLS = (k, v) => { try { localStorage.setItem('mendan-' + k, v); } catch (e) {} };
@@ -251,7 +252,7 @@ let subs = [];
 const kept = {};
 const cfg = () => {
   const c = S.config || {};
-  return { hours: { start: 540, end: 1140, ...(c.hours || {}) }, gasUrl: c.gasUrl || '', gasToken: c.gasToken || DEFAULT_GAS_TOKEN };
+  return { hours: { start: 540, end: 1140, ...(c.hours || {}) } };
 };
 
 /* ===== NG 判定 ===== */
@@ -310,19 +311,19 @@ function statusLabel(m, forStudent) {
 }
 const stBadge = (m, fs) => { const [c, l] = statusLabel(m, fs); return `<span class="st st-${c}">${l}</span>`; };
 
-/* ===== メール通知（Google Apps Script 経由・任意） ===== */
-function sendMail(payload) {
-  const {gasUrl, gasToken} = cfg();
-  if (!gasUrl) return;
-  const appUrl = location.origin + location.pathname;
-  payload.body = (payload.body || '') + `\n\n――――――――\n${APP_NAME}アプリ：${appUrl}`;
-  fetch(gasUrl, {method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify({...payload, token: gasToken})}).catch(e => console.warn('mail', e));
-}
-const mailTeacher = (subject, body) => sendMail({toTeacher: true, subject, body});
-function mailStudent(code, subject, body) {
-  const st = S.students[code]; if (!st || !st.email) return;
-  sendMail({to: st.email, subject, body: `${st.name}さん\n\n${body}`});
-}
+/* ===== メール通知：廃止（呼び出しは残したまま何もしない） ===== */
+function sendMail() {}
+
+
+
+
+
+
+const mailTeacher = () => {};
+function mailStudent() {}
+
+
+
 
 /* ===== 画面の再描画 ===== */
 let pendingRender = false;
@@ -399,10 +400,10 @@ function view() {
 }
 function loginView() {
   const q = new URLSearchParams(location.search).get('code') || '';
-  if (q && kept['login-code'] == null) kept['login-code'] = normCode(q).slice(0, 6);
+  if (q && kept['login-code'] == null) kept['login-code'] = normCode(q).slice(0, 8);
   return `<div class="login">
-    <div class="card"><h2>学生の方</h2><p class="hint">先生から受け取った<b>6桁の数字</b>（個人コード）を入力してください。</p>
-      <input id="login-code" data-keep class="big-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="000000">
+    <div class="card"><h2>学生の方</h2><p class="hint">先生から受け取った<b>8文字の英数字</b>（個人コード）を入力してください。</p>
+      <input id="login-code" data-keep class="big-input" maxlength="8" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="ABCD2345" style="text-transform:uppercase;letter-spacing:2px">
       <div style="margin-top:12px"><button class="pri" style="width:100%" data-act="studentLogin">入る</button></div></div>
     <div class="card"><h2>教員の方</h2><p class="hint">登録済みのGoogleアカウントでログインします。</p>
       <button class="pri" style="width:100%" data-act="teacherLogin">Googleでログイン</button></div>
@@ -565,38 +566,39 @@ function studentsView() {
     const r = roundMap(s.meetings); const cnt = Object.keys(r).length;
     if (S.editing === code) {
       if (kept['ed-name'] == null) kept['ed-name'] = s.name;
-      if (kept['ed-email'] == null) kept['ed-email'] = s.email || '';
-      return `<tr><td><input id="ed-name" data-keep style="width:100%"></td><td><span class="code">${codeOf(code)}</span>${isLegacyKey(code) ? `<br><button class="sm" data-act="stuReissue" data-code="${code}">6桁コードに再発行</button>` : ''}</td><td><input id="ed-email" data-keep type="email" style="width:100%"></td><td>${cnt}回</td>
+
+      return `<tr><td><input id="ed-name" data-keep style="width:100%"></td><td><span class="code">${codeOf(code)}</span>${isLegacyKey(code) ? `<br><button class="sm" data-act="stuReissue" data-code="${code}">8文字コードに再発行</button>` : ''}</td><td>${cnt}回</td>
         <td><div class="row"><button class="sm pri" data-act="stuSave" data-code="${code}">保存</button><button class="sm" data-act="stuEditCancel">やめる</button></div></td></tr>`;
     }
     const ms = Object.entries(s.meetings || {}).filter(([, m]) => SHOW.includes(m.status)).sort((a, b) => b[1].startAt - a[1].startAt);
-    return `<tr><td><b>${esc(s.name)}</b></td><td><span class="code">${codeOf(code)}</span>${isLegacyKey(code) ? `<br><button class="sm" data-act="stuReissue" data-code="${code}">6桁コードに再発行</button>` : ''}</td><td>${esc(s.email || '—')}</td><td>${cnt}回</td>
+    return `<tr><td><b>${esc(s.name)}</b></td><td><span class="code">${codeOf(code)}</span>${isLegacyKey(code) ? `<br><button class="sm" data-act="stuReissue" data-code="${code}">8文字コードに再発行</button>` : ''}</td><td>${cnt}回</td>
       <td><div class="row"><button class="sm" data-act="stuMeetings" data-code="${code}">面談一覧</button><button class="sm" data-act="copyInvite" data-code="${code}">案内文をコピー</button><button class="sm" data-act="stuEdit" data-code="${code}">編集</button>${!isLegacyKey(code) ? `<button class="sm" data-act="stuReissue" data-code="${code}">コード再発行</button>` : ''}<button class="sm bad" data-act="stuDel" data-code="${code}">削除</button></div></td></tr>
       ${S.stuOpen === code ? `<tr><td colspan="5">${ms.length ? ms.map(([mid, m]) => `<div class="list-item clickable" data-act="openDetail" data-code="${code}" data-mid="${mid}">${stBadge(m)}<span class="grow">${r[mid] ? `第${r[mid]}回面談　` : ''}${rangeShort(disp(m).date, disp(m).start, disp(m).end)}</span><span>→</span></div>`).join('') : '<p class="empty">面談はまだありません。</p>'}</td></tr>` : ''}`;
   }).join('');
   return `<div class="card"><h2>生徒を登録する</h2>
-      <p class="hint">名前を登録すると、ランダムな6桁の数字の「個人コード」が発行されます。生徒はそのコードを入力すると、自分の名前が表示されて自分の画面に入れます。メールアドレスは通知メール用（任意）です。</p>
-      <div class="row"><input id="stu-name" data-keep placeholder="名前（例：早稲田 花子）"> <input id="stu-email" data-keep type="email" placeholder="メールアドレス（任意）" style="min-width:240px"> <button class="pri" data-act="stuAdd">登録してコードを発行</button></div>
+      <p class="hint">名前を登録すると、ランダムな英数字8文字の「個人コード」が発行されます。生徒はそのコードを入力すると、自分の名前が表示されて自分の画面に入れます。</p>
+      ${Object.keys(S.students || {}).some(isLegacyKey) ? `<div class="msg bad"><p>旧形式（数字6桁）の個人コードの生徒がいます。数字6桁は総当たりで見破られやすいため、8文字のコードに切り替えてください。切り替えると古いコードは使えなくなるので、生徒に新しいコードを配り直してください。</p><button class="pri" data-act="stuReissueAll">6桁コードの生徒をまとめて8文字に再発行</button></div>` : ''}
+      <div class="row"><input id="stu-name" data-keep placeholder="名前（例：早稲田 花子）"> <button class="pri" data-act="stuAdd">登録してコードを発行</button></div>
       <div class="err">${esc(S.stuErr || '')}</div></div>
     <div class="card"><h2>登録済みの生徒（${studs.length}人）</h2>
-      ${studs.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>名前</th><th>個人コード</th><th>メール</th><th>確定面談</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">まだ登録されていません。</p>'}</div>`;
+      ${studs.length ? `<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>名前</th><th>個人コード</th><th>確定面談</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">まだ登録されていません。</p>'}</div>`;
 }
 
 /* ----- 設定 ----- */
 function settingsView() {
   const c = cfg();
-  for (const [k, v] of [['set-hs', c.hours.start], ['set-he', c.hours.end], ['set-gas', c.gasUrl], ['set-token', c.gasToken]]) if (kept[k] == null) kept[k] = String(v);
+  for (const [k, v] of [['set-hs', c.hours.start], ['set-he', c.hours.end]]) if (kept[k] == null) kept[k] = String(v);
   const appUrl = location.origin + location.pathname;
   return `<div class="card"><h2>受付時間</h2><p class="hint">生徒が面談を希望できる時間帯です。これ以外の時間は自動的にNGになります。</p>
       <div class="row"><select id="set-hs" data-keep>${timeOpts(6 * 60, 23 * 60)}</select> 〜 <select id="set-he" data-keep>${timeOpts(7 * 60, 24 * 60 + 1)}</select>
       <button class="pri" data-act="saveHours">保存</button></div></div>
-    <div class="card"><h2>メール通知（任意）</h2>
-      <p class="hint">Google Apps Script の「ウェブアプリURL」と「合言葉」を入れると、面談希望・確定・NGなどのときにメールが届きます（設定方法は手順書を参照）。空欄ならアプリ内の表示だけで動きます。</p>
-      <div style="display:grid;gap:8px;max-width:640px">
-        <label>ウェブアプリURL<br><input id="set-gas" data-keep type="url" style="width:100%" placeholder="https://script.google.com/macros/s/……/exec"></label>
-        <label>合言葉（スクリプトの TOKEN と同じもの）<br><input id="set-token" data-keep style="width:100%"></label>
-      </div>
-      <div class="row" style="margin-top:10px"><button class="pri" data-act="saveMail">保存</button><button data-act="testMail">教員あてにテストメールを送る</button></div></div>
+
+
+
+
+
+
+
     <div class="card"><h2>生徒に伝えるURL</h2><p><a href="${esc(appUrl)}" target="_blank">${esc(appUrl)}</a></p>
       <p class="hint">「生徒とコード」タブの「案内文をコピー」を使うと、コード入りのURLをまとめてコピーできます。</p></div>`;
 }
@@ -724,10 +726,10 @@ const mpath = (code, mid, f) => `students/${code}/meetings/${mid}${f ? '/' + f :
 function unsubAll() { subs.forEach(u => u()); subs = []; }
 function startTeacher() {
   S.role = 'teacher'; S.view = 'cal'; S.err = '';
-  subs.push(B.on('students', v => { S.students = v || {}; requestRender(); }));
+  subs.push(B.on('students', v => { S.students = v || {}; const rm = {}; for (const [k, s] of Object.entries(S.students)) if (s && s.email != null) rm[`students/${k}/email`] = null; if (Object.keys(rm).length) B.update(rm).catch(() => {}); requestRender(); }));
   subs.push(B.on('slots', v => { S.slots = v || {}; requestRender(); }));
   subs.push(B.on('ng', v => { S.ng = v || {}; requestRender(); }));
-  subs.push(B.on('config', v => { S.config = v || {}; requestRender(); }));
+  subs.push(B.on('config', v => { S.config = v || {}; if (S.config.gasUrl != null || S.config.gasToken != null) B.update({'config/gasUrl': null, 'config/gasToken': null}).catch(() => {}); requestRender(); }));
   S.loading = false; render();
 }
 function startStudent(code) {
@@ -740,8 +742,8 @@ function startStudent(code) {
 }
 async function enterStudent(code) {
   let st = null;
-  if (/^c\d{6}$/.test(code)) { try { st = await B.get('students/' + code); } catch (e) { st = null; } }
-  if (!st || !st.sid) { delLS('code'); S.err = '個人コードが見つかりません。先生から受け取った6桁の数字を確認してください。'; S.loading = false; render(); return; }
+  if (/^[A-Z0-9]{8}$/.test(code)) { try { st = await B.get('students/' + code); } catch (e) { st = null; } }
+  if (!st || !st.sid) { delLS('code'); S.err = '個人コードが見つかりません。先生から受け取った8文字の英数字を確認してください。'; S.loading = false; render(); return; }
   try { await B.update({['owners/' + S.user.uid]: {code, sid: st.sid}}); } catch (e) { console.error(e); }
   startStudent(code);
   toast(`${st.name} さんとしてログインしました`);
@@ -767,7 +769,7 @@ if (!B) {
 }
 
 /* ----- イベント ----- */
-document.addEventListener('input', e => { const t = e.target; if (t.id === 'login-code') { const v = normCode(t.value).slice(0, 6); if (v !== t.value) t.value = v; } if (t.id && t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value; });
+document.addEventListener('input', e => { const t = e.target; if (t.id === 'login-code') { const v = normCode(t.value).slice(0, 8); if (v !== t.value) t.value = v; } if (t.id && t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value; });
 document.addEventListener('change', e => {
   const t = e.target; if (!t.id) return;
   if (t.dataset.keep !== undefined) kept[t.id] = t.type === 'checkbox' ? t.checked : t.value;
@@ -785,7 +787,7 @@ const ACT = {
   /* ログイン */
   async studentLogin() {
     const digits = normCode(kept['login-code'] || val('login-code'));
-    if (digits.length !== 6) { S.err = '個人コード（6桁の数字）を入力してください。'; render(); return; }
+    if (digits.length !== 8) { S.err = '個人コード（英数字8文字）を入力してください。'; render(); return; }
     const code = keyOf(digits);
     S.err = ''; setLS('code', code);
     if (S.user && S.user.isAnonymous) { await enterStudent(code); return; }
@@ -911,22 +913,22 @@ const ACT = {
 
   /* 教員：生徒 */
   stuAdd() {
-    const name = String(val('stu-name')).trim(), email = String(val('stu-email')).trim();
+    const name = String(val('stu-name')).trim();
     S.stuErr = '';
     if (!name) { S.stuErr = '名前を入力してください。'; render(); return; }
     let code; do { code = keyOf(genCode()); } while (S.students[code]);
     run(async () => {
-      await B.update({['students/' + code]: {name, email, sid: newId(), createdAt: now()}});
-      clearKept('stu-name', 'stu-email'); setKept('stu-name', ''); setKept('stu-email', ''); delete kept['stu-name']; delete kept['stu-email'];
+      await B.update({['students/' + code]: {name, sid: newId(), createdAt: now()}});
+      clearKept('stu-name'); setKept('stu-name', ''); delete kept['stu-name'];
       toast(`${name}さんを登録しました（個人コード：${codeOf(code)}）`);
     });
   },
-  stuEdit(d) { S.editing = d.code; clearKept('ed-name', 'ed-email'); render(); },
+  stuEdit(d) { S.editing = d.code; clearKept('ed-name'); render(); },
   stuEditCancel() { S.editing = null; render(); },
   stuSave(d) {
-    const name = String(val('ed-name')).trim(), email = String(val('ed-email')).trim();
+    const name = String(val('ed-name')).trim();
     if (!name) { toast('名前を入力してください'); return; }
-    run(async () => { await B.update({[`students/${d.code}/name`]: name, [`students/${d.code}/email`]: email}); S.editing = null; clearKept('ed-name', 'ed-email'); render(); });
+    run(async () => { await B.update({[`students/${d.code}/name`]: name}); S.editing = null; clearKept('ed-name'); render(); });
   },
   stuDel(d) {
     const st = S.students[d.code];
@@ -937,9 +939,18 @@ const ACT = {
   },
   stuReissue(d) {
     const st = S.students[d.code];
-    if (!confirm(`${st.name}さんの個人コードを新しい6桁の数字に変えますか？\n今のコード（${codeOf(d.code)}）は使えなくなります。面談の記録はそのまま引き継がれます。`)) return;
+    if (!confirm(`${st.name}さんの個人コードを新しい8文字のコードに変えますか？\n今のコード（${codeOf(d.code)}）は使えなくなります。面談の記録はそのまま引き継がれます。`)) return;
     let code; do { code = keyOf(genCode()); } while (S.students[code]);
-    run(async () => { await B.update({['students/' + code]: st, ['students/' + d.code]: null}); if (S.stuOpen === d.code) S.stuOpen = code; toast(`新しい個人コード：${codeOf(code)}`); });
+    const nst = {...st}; delete nst.email;
+    run(async () => { await B.update({['students/' + code]: nst, ['students/' + d.code]: null}); if (S.stuOpen === d.code) S.stuOpen = code; toast(`新しい個人コード：${codeOf(code)}`); });
+  },
+  stuReissueAll() {
+    const olds = Object.keys(S.students || {}).filter(isLegacyKey);
+    if (!olds.length) return;
+    if (!confirm(`旧形式（数字6桁）のコードの生徒 ${olds.length}人 に、新しい8文字のコードを発行します。\n古いコードはすぐに使えなくなります。面談の記録はそのまま引き継がれます。\n終わったら、生徒ごとに「案内文をコピー」で新しいコードを配ってください。`)) return;
+    const map = {}, used = new Set(Object.keys(S.students));
+    for (const k of olds) { let code; do { code = genCode(); } while (used.has(code)); used.add(code); const nst = {...S.students[k]}; delete nst.email; map['students/' + code] = nst; map['students/' + k] = null; }
+    run(async () => { await B.update(map); S.stuOpen = null; toast(`${olds.length}人のコードを8文字に再発行しました`); });
   },
   stuMeetings(d) { S.stuOpen = S.stuOpen === d.code ? null : d.code; render(); },
   async copyInvite(d) {
@@ -954,8 +965,8 @@ const ACT = {
     if (!(e > s)) { toast('終了は開始より後にしてください'); return; }
     run(async () => { await B.update({'config/hours': {start: s, end: e}}); toast('受付時間を保存しました'); });
   },
-  saveMail() { run(async () => { await B.update({'config/gasUrl': String(val('set-gas')).trim(), 'config/gasToken': String(val('set-token')).trim()}); toast('保存しました'); }); },
-  testMail() { if (!cfg().gasUrl) { toast('先にURLを保存してください'); return; } mailTeacher('テストメール', 'これはテストメールです。このメールが届いていれば設定は完了です。'); toast('送信しました。数十秒以内に届くか確認してください'); },
+
+
 
   /* 生徒 */
   request() {
